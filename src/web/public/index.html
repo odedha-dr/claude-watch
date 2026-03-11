@@ -1023,7 +1023,7 @@
     }
 
     function getVisibleSessions() {
-      return allSessions.filter(s => isInRange(s.startedAt));
+      return allSessions.filter(s => s.isActive || isInRange(s.startedAt));
     }
 
     function escHtml(s) {

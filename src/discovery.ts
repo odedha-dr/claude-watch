@@ -68,7 +68,11 @@ export async function discoverSessions(projectPath: string): Promise<SessionData
 
         const sixtyMinAgo = Date.now() - 60 * 60 * 1000;
         session.isActive = latestMtime > sixtyMinAgo;
-        session.startedAt = fileStat.birthtimeMs ? new Date(fileStat.birthtimeMs) : null;
+        // startedAt is now set by the parser from the first JSONL entry timestamp
+        // Fall back to file birthtime only if parser didn't find a timestamp
+        if (!session.startedAt && fileStat.birthtimeMs) {
+          session.startedAt = new Date(fileStat.birthtimeMs);
+        }
 
         sessions.push(session);
       } catch {

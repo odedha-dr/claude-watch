@@ -105,6 +105,11 @@ export async function parseSessionFile(filePath: string, project: string): Promi
       session.cwd = raw.cwd;
     }
 
+    // Use timestamp from first entry that has one
+    if (raw.timestamp && !session.startedAt) {
+      session.startedAt = new Date(raw.timestamp);
+    }
+
     const metrics = parseEntry(raw);
 
     // Model (take the latest)

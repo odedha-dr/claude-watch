@@ -54,8 +54,12 @@ program
   .option('--web', 'Launch web dashboard instead of TUI')
   .option('--port <number>', 'Web server port', '3000')
   .option('--project <path>', 'Project directory to monitor')
-  .option('--all', 'Monitor all projects')
+  .option('--all', 'Monitor all projects (default for web mode)')
   .action(async (options) => {
+    // Default to --all for web mode
+    if (options.web && !options.project) {
+      options.all = true;
+    }
     const projectPaths = await resolveProjectPaths(options);
     const watcher = new SessionWatcher(projectPaths);
 
