@@ -6,9 +6,9 @@ import { SessionWatcher } from './watcher.js';
 import { createWebServer } from './web/server.js';
 import { startApp } from './tui/app.js';
 
-async function resolveProjectPath(options: { project?: string; all?: boolean }): Promise<string> {
+async function resolveProjectPaths(options: { project?: string; all?: boolean }): Promise<string[]> {
   if (options.project) {
-    return resolve(options.project);
+    return [resolve(options.project)];
   }
 
   const projects = await discoverProjects();
@@ -19,9 +19,7 @@ async function resolveProjectPath(options: { project?: string; all?: boolean }):
   }
 
   if (options.all) {
-    // For --all, use the first project for now (multi-project is out of scope for v1)
-    console.log(`Found ${projects.length} projects, using first: ${projects[0].name}`);
-    return projects[0].path;
+    return projects.map(p => p.path);
   }
 
   // Auto-detect: match cwd against known project paths
@@ -39,12 +37,12 @@ async function resolveProjectPath(options: { project?: string; all?: boolean }):
   if (matches.length > 0) {
     // Prefer the one with most sessions (likely the most active)
     matches.sort((a, b) => b.sessionCount - a.sessionCount);
-    return matches[0].path;
+    return [matches[0].path];
   }
 
   // Fallback: most recent project (first in sorted list)
   console.log(`No project match for cwd, using: ${projects[0].name} (${projects[0].sessionCount} sessions)`);
-  return projects[0].path;
+  return [projects[0].path];
 }
 
 const program = new Command();
@@ -58,8 +56,8 @@ program
   .option('--project <path>', 'Project directory to monitor')
   .option('--all', 'Monitor all projects')
   .action(async (options) => {
-    const projectPath = await resolveProjectPath(options);
-    const watcher = new SessionWatcher(projectPath);
+    const projectPaths = await resolveProjectPaths(options);
+    const watcher = new SessionWatcher(projectPaths);
 
     // Graceful shutdown
     process.on('SIGINT', async () => {

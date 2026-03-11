@@ -4,55 +4,65 @@ import { discoverSessions } from './discovery.js';
 import type { SessionData, WatcherEvent } from './types.js';
 
 export class SessionWatcher extends EventEmitter {
-  private projectPath: string;
+  private projectPaths: string[];
   private sessions: Map<string, SessionData> = new Map();
   private pollInterval: ReturnType<typeof setInterval> | null = null;
-  private watcher: ReturnType<typeof watch> | null = null;
+  private watchers: ReturnType<typeof watch>[] = [];
 
-  constructor(projectPath: string) {
+  constructor(projectPaths: string | string[]) {
     super();
-    this.projectPath = projectPath;
+    this.projectPaths = Array.isArray(projectPaths) ? projectPaths : [projectPaths];
   }
 
   async start(): Promise<void> {
     // Initial load
     await this.refresh();
 
-    // File watching
-    this.watcher = watch(this.projectPath, {
-      ignoreInitial: true,
-      depth: 2,
-    });
+    // File watching for each project path
+    for (const projectPath of this.projectPaths) {
+      const w = watch(projectPath, {
+        ignoreInitial: true,
+        depth: 2,
+      });
 
-    this.watcher.on('change', (path: string) => {
-      if (path.endsWith('.jsonl')) {
-        this.refresh();
-      }
-    });
+      w.on('change', (path: string) => {
+        if (path.endsWith('.jsonl')) {
+          this.refresh();
+        }
+      });
 
-    this.watcher.on('add', (path: string) => {
-      if (path.endsWith('.jsonl')) {
-        this.refresh();
-      }
-    });
+      w.on('add', (path: string) => {
+        if (path.endsWith('.jsonl')) {
+          this.refresh();
+        }
+      });
+
+      this.watchers.push(w);
+    }
 
     // Polling fallback every 5 seconds
     this.pollInterval = setInterval(() => this.refresh(), 5000);
   }
 
   async refresh(): Promise<void> {
-    const sessions = await discoverSessions(this.projectPath);
-    for (const session of sessions) {
-      const existing = this.sessions.get(session.id);
-      const isNew = !existing;
-      this.sessions.set(session.id, session);
+    for (const projectPath of this.projectPaths) {
+      try {
+        const sessions = await discoverSessions(projectPath);
+        for (const session of sessions) {
+          const existing = this.sessions.get(session.id);
+          const isNew = !existing;
+          this.sessions.set(session.id, session);
 
-      const event: WatcherEvent = {
-        type: isNew ? 'session-added' : 'session-updated',
-        sessionId: session.id,
-        data: session,
-      };
-      this.emit('change', event);
+          const event: WatcherEvent = {
+            type: isNew ? 'session-added' : 'session-updated',
+            sessionId: session.id,
+            data: session,
+          };
+          this.emit('change', event);
+        }
+      } catch {
+        // Skip projects that fail to read
+      }
     }
   }
 
@@ -73,6 +83,8 @@ export class SessionWatcher extends EventEmitter {
 
   async stop(): Promise<void> {
     if (this.pollInterval) clearInterval(this.pollInterval);
-    if (this.watcher) await this.watcher.close();
+    for (const w of this.watchers) {
+      await w.close();
+    }
   }
 }
