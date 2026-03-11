@@ -51,13 +51,13 @@ program
   .name('claude-watch')
   .description('Live monitoring dashboard for Claude Code sessions')
   .version('0.1.0')
-  .option('--web', 'Launch web dashboard instead of TUI')
+  .option('--tui', 'Launch TUI dashboard instead of web')
   .option('--port <number>', 'Web server port', '3000')
   .option('--project <path>', 'Project directory to monitor')
   .option('--all', 'Monitor all projects (default for web mode)')
   .action(async (options) => {
-    // Default to --all for web mode
-    if (options.web && !options.project) {
+    // Default to --all for web mode (which is now default)
+    if (!options.tui && !options.project) {
       options.all = true;
     }
     const projectPaths = await resolveProjectPaths(options);
@@ -71,11 +71,11 @@ program
 
     await watcher.start();
 
-    if (options.web) {
+    if (options.tui) {
+      startApp(watcher);
+    } else {
       const port = parseInt(options.port, 10);
       createWebServer(watcher, port);
-    } else {
-      startApp(watcher);
     }
   });
 
