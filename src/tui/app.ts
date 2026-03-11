@@ -16,7 +16,7 @@ export function startApp(watcher: SessionWatcher): void {
 
   let sessions: SessionData[] = [];
   let selectedIndex = 0;
-  let activeOnly = true;
+  let activeOnly = false;
 
   function refresh() {
     sessions = watcher.getSessions(activeOnly);
