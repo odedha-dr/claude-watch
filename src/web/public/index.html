@@ -469,6 +469,92 @@
     .combo-tools { color: var(--text); }
     .combo-count { color: var(--text-muted); font-variant-numeric: tabular-nums; }
 
+    /* Tool call list */
+    .tool-call-list { display: flex; flex-direction: column; gap: 2px; }
+    .tool-call-row {
+      display: grid;
+      grid-template-columns: 50px 100px 1fr auto;
+      gap: 10px;
+      align-items: center;
+      padding: 7px 12px;
+      background: var(--bg);
+      border-radius: 4px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: background 0.15s;
+      border-left: 3px solid transparent;
+    }
+    .tool-call-row:hover { background: var(--bg-hover); }
+    .tool-call-row.expanded { background: var(--bg-hover); border-left-color: var(--accent); }
+    .tool-call-row .tc-turn { color: var(--text-muted); }
+    .tool-call-row .tc-name {
+      font-weight: 600;
+      color: var(--accent);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .tool-call-row .tc-summary {
+      color: var(--text-muted);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .tool-call-row .tc-status { text-align: right; white-space: nowrap; }
+    .tc-status-ok { color: var(--green); }
+    .tc-status-err { color: var(--red); }
+    .tc-status-interrupted { color: var(--orange); }
+    .tool-call-expanded {
+      padding: 10px 12px 10px 24px;
+      background: var(--bg-surface);
+      border-left: 3px solid var(--border);
+      margin-bottom: 2px;
+      border-radius: 0 0 4px 4px;
+      font-size: 12px;
+    }
+    .tool-call-expanded .tc-section { margin-bottom: 10px; }
+    .tool-call-expanded .tc-section:last-child { margin-bottom: 0; }
+    .tool-call-expanded .tc-section-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+    }
+    .tool-call-expanded pre {
+      background: var(--bg);
+      padding: 8px 10px;
+      border-radius: 4px;
+      overflow-x: auto;
+      max-height: 300px;
+      overflow-y: auto;
+      font-size: 11px;
+      line-height: 1.4;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+    .tool-call-expanded .tc-stdout { border-left: 3px solid var(--green); }
+    .tool-call-expanded .tc-stderr { border-left: 3px solid var(--red); }
+    .tool-filter {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-bottom: 10px;
+    }
+    .tool-filter-btn {
+      padding: 3px 10px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text-muted);
+      font-family: inherit;
+      font-size: 11px;
+      cursor: pointer;
+      border-radius: 12px;
+      transition: all 0.15s;
+    }
+    .tool-filter-btn:hover { background: var(--bg-hover); color: var(--text); }
+    .tool-filter-btn.active { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+
     /* Per-turn table */
     .turns-table {
       width: 100%;
@@ -1075,6 +1161,8 @@
     // ---- Select Session ----
     async function selectSession(id) {
       selectedId = id;
+      toolFilter = 'all';
+      expandedToolCalls = new Set();
       renderSidebar();
       document.getElementById('empty-state').style.display = 'none';
       const dv = document.getElementById('detail-view');
@@ -1413,6 +1501,9 @@
     }
 
     // ---- Tools Tab ----
+    let toolFilter = 'all';
+    let expandedToolCalls = new Set();
+
     function renderTools() {
       const d = selectedDetail;
       if (!d) return;
@@ -1445,7 +1536,124 @@
         html += '</div></div>';
       }
 
+      // Tool call list — extract from turns
+      const allToolCalls = [];
+      (d.turns || []).forEach(turn => {
+        if (!turn.content) return;
+        turn.content.forEach((block, blockIdx) => {
+          if (block.type === 'tool_use') {
+            allToolCalls.push({
+              turnNumber: turn.number,
+              timestamp: turn.timestamp,
+              name: block.toolName || '?',
+              input: block.toolInput,
+              result: block.toolResult,
+              id: `tc-${turn.number}-${blockIdx}`,
+            });
+          }
+        });
+      });
+
+      if (allToolCalls.length > 0) {
+        // Filter buttons
+        const toolNames = [...new Set(allToolCalls.map(t => t.name))].sort();
+        html += '<div class="section"><h3>All Tool Calls (' + allToolCalls.length + ')</h3>';
+        html += '<div class="tool-filter">';
+        html += `<button class="tool-filter-btn${toolFilter === 'all' ? ' active' : ''}" data-filter="all">All</button>`;
+        toolNames.forEach(name => {
+          const count = allToolCalls.filter(t => t.name === name).length;
+          html += `<button class="tool-filter-btn${toolFilter === name ? ' active' : ''}" data-filter="${escHtml(name)}">${escHtml(name)} (${count})</button>`;
+        });
+        html += '</div>';
+
+        // Filtered list
+        const filtered = toolFilter === 'all' ? allToolCalls : allToolCalls.filter(t => t.name === toolFilter);
+        html += '<div class="tool-call-list">';
+        filtered.forEach(tc => {
+          const isExpanded = expandedToolCalls.has(tc.id);
+          // Build summary from input
+          let summary = '';
+          if (tc.input) {
+            if (tc.name === 'Read' && tc.input.file_path) summary = String(tc.input.file_path);
+            else if (tc.name === 'Write' && tc.input.file_path) summary = String(tc.input.file_path);
+            else if (tc.name === 'Edit' && tc.input.file_path) summary = String(tc.input.file_path);
+            else if (tc.name === 'Bash' && tc.input.command) summary = String(tc.input.command).slice(0, 120);
+            else if (tc.name === 'Grep' && tc.input.pattern) summary = 'pattern: ' + String(tc.input.pattern);
+            else if (tc.name === 'Glob' && tc.input.pattern) summary = String(tc.input.pattern);
+            else if (tc.name === 'Agent' && tc.input.description) summary = String(tc.input.description);
+            else if (tc.name === 'Skill' && tc.input.skill) summary = String(tc.input.skill);
+            else {
+              const keys = Object.keys(tc.input).slice(0, 2);
+              summary = keys.map(k => k + ': ' + String(tc.input[k]).slice(0, 60)).join(', ');
+            }
+          }
+
+          // Status
+          let statusHtml = '';
+          if (tc.result) {
+            if (tc.result.interrupted) statusHtml = '<span class="tc-status-interrupted">interrupted</span>';
+            else if (tc.result.stderr && tc.result.stderr.trim()) statusHtml = '<span class="tc-status-err">stderr</span>';
+            else statusHtml = '<span class="tc-status-ok">✓</span>';
+          }
+
+          html += `<div class="tool-call-row${isExpanded ? ' expanded' : ''}" data-tcid="${tc.id}">
+            <span class="tc-turn">#${tc.turnNumber}</span>
+            <span class="tc-name" title="${escHtml(tc.name)}">${escHtml(tc.name)}</span>
+            <span class="tc-summary" title="${escHtml(summary)}">${escHtml(summary)}</span>
+            <span class="tc-status">${statusHtml}</span>
+          </div>`;
+
+          if (isExpanded) {
+            html += '<div class="tool-call-expanded">';
+            // Input
+            if (tc.input && Object.keys(tc.input).length > 0) {
+              html += '<div class="tc-section"><div class="tc-section-label">Input</div>';
+              html += `<pre>${escHtml(JSON.stringify(tc.input, null, 2))}</pre>`;
+              html += '</div>';
+            }
+            // Result
+            if (tc.result) {
+              if (tc.result.stdout && tc.result.stdout.trim()) {
+                const out = tc.result.stdout.length > 2000 ? tc.result.stdout.slice(0, 2000) + '\n... (truncated)' : tc.result.stdout;
+                html += '<div class="tc-section"><div class="tc-section-label">Output</div>';
+                html += `<pre class="tc-stdout">${escHtml(out)}</pre>`;
+                html += '</div>';
+              }
+              if (tc.result.stderr && tc.result.stderr.trim()) {
+                const err = tc.result.stderr.length > 2000 ? tc.result.stderr.slice(0, 2000) + '\n... (truncated)' : tc.result.stderr;
+                html += '<div class="tc-section"><div class="tc-section-label">Stderr</div>';
+                html += `<pre class="tc-stderr">${escHtml(err)}</pre>`;
+                html += '</div>';
+              }
+              if (tc.result.interrupted) {
+                html += '<div class="tc-section"><span class="tc-status-interrupted">⚠ Execution was interrupted</span></div>';
+              }
+            }
+            html += '</div>';
+          }
+        });
+        html += '</div></div>';
+      }
+
       document.getElementById('tab-tools').innerHTML = html;
+
+      // Event: filter buttons
+      document.querySelectorAll('.tool-filter-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          toolFilter = btn.dataset.filter;
+          renderTools();
+        });
+      });
+
+      // Event: expand/collapse tool call rows
+      document.querySelectorAll('.tool-call-row').forEach(row => {
+        row.addEventListener('click', () => {
+          const id = row.dataset.tcid;
+          if (expandedToolCalls.has(id)) expandedToolCalls.delete(id);
+          else expandedToolCalls.add(id);
+          renderTools();
+        });
+      });
     }
 
     // ---- Subagents Tab ----
