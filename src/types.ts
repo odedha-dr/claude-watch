@@ -9,8 +9,12 @@ export interface RawEntry {
   gitBranch?: string;
   type?: string;
   subtype?: string;
+  timestamp?: string;
   message?: RawMessage;
   data?: Record<string, unknown>;
+  toolUseResult?: Record<string, unknown>;
+  uuid?: string;
+  slug?: string;
 }
 
 export interface RawMessage {
@@ -84,8 +88,32 @@ export interface WatcherEvent {
 export interface Turn {
   number: number;
   role: 'user' | 'assistant';
+  timestamp: string | null;
+  durationMs: number | null;       // time from this entry to next entry (latency)
   toolCalls: string[];
-  tokens: { input: number; output: number };
+  tokens: {
+    input: number;
+    output: number;
+    cacheCreation: number;
+    cacheRead: number;
+    totalIn: number;               // input + cacheCreation + cacheRead
+  };
+  // Full content for drill-down
+  content: TurnContent[];
+  stopReason?: string;
+}
+
+export interface TurnContent {
+  type: 'text' | 'thinking' | 'tool_use' | 'tool_result' | 'other';
+  text?: string;                   // for text/thinking blocks
+  toolName?: string;               // for tool_use
+  toolInput?: Record<string, unknown>;  // for tool_use
+  toolResult?: {                   // for tool_result (from the following user entry)
+    stdout?: string;
+    stderr?: string;
+    interrupted?: boolean;
+    isImage?: boolean;
+  };
 }
 
 export interface ToolCallEntry {

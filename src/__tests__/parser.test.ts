@@ -158,4 +158,37 @@ describe('parseSessionFileDetailed', () => {
     const detail = await parseSessionFileDetailed(MULTI_TURN_FIXTURE, 'test-project');
     expect(detail.compactions).toBe(1);
   });
+
+  it('includes timestamps and computes latency (durationMs)', async () => {
+    const detail = await parseSessionFileDetailed(MULTI_TURN_FIXTURE, 'test-project');
+    // Turn 1 (user) at 10:00:01, Turn 2 (assistant) at 10:00:04 → latency 3000ms
+    expect(detail.turns[0].timestamp).toBe('2026-03-11T10:00:01.000Z');
+    expect(detail.turns[0].durationMs).toBe(3000);
+    // Turn 2 (assistant) at 10:00:04, next entry (user) at 10:00:10 → 6000ms
+    expect(detail.turns[1].durationMs).toBe(6000);
+  });
+
+  it('includes per-turn cache token breakdown', async () => {
+    const detail = await parseSessionFileDetailed(MULTI_TURN_FIXTURE, 'test-project');
+    const assistantTurn = detail.turns[1]; // turn 2 (assistant)
+    expect(assistantTurn.tokens.cacheCreation).toBe(500);
+    expect(assistantTurn.tokens.cacheRead).toBe(300);
+    expect(assistantTurn.tokens.totalIn).toBe(1800); // 1000 + 500 + 300
+  });
+
+  it('includes content blocks with text and tool details', async () => {
+    const detail = await parseSessionFileDetailed(MULTI_TURN_FIXTURE, 'test-project');
+    const turn2 = detail.turns[1]; // assistant turn with Read + Grep
+    expect(turn2.content.length).toBeGreaterThanOrEqual(3); // text + 2 tool_use
+    const textBlock = turn2.content.find(c => c.type === 'text');
+    expect(textBlock?.text).toBe('Let me look at the code.');
+    const toolBlock = turn2.content.find(c => c.type === 'tool_use' && c.toolName === 'Read');
+    expect(toolBlock?.toolInput).toEqual({ file_path: '/src/index.ts' });
+  });
+
+  it('includes stopReason on assistant turns', async () => {
+    const detail = await parseSessionFileDetailed(MULTI_TURN_FIXTURE, 'test-project');
+    expect(detail.turns[1].stopReason).toBe('tool_use');
+    expect(detail.turns[5].stopReason).toBe('end_turn');
+  });
 });
