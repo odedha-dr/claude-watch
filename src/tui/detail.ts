@@ -114,8 +114,10 @@ export function createDetailPanel(screen: blessed.Widgets.Screen): DetailPanelWi
     const skills = session.skillInvocations.length > 0
       ? session.skillInvocations.join(', ')
       : '-';
+    const cwdDisplay = session.cwd || '-';
     metaBox.setContent(
       `{bold}{cyan-fg}Meta{/cyan-fg}{/bold}  ` +
+      `Folder: {white-fg}${cwdDisplay}{/white-fg}  ` +
       `Agents: {white-fg}${session.agentSpawns}{/white-fg}  ` +
       `Skills: {white-fg}${skills}{/white-fg}  ` +
       `Subagents: {white-fg}${session.subagents.length}{/white-fg}  ` +

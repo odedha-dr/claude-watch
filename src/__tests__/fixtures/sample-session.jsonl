@@ -1,4 +1,4 @@
-{"sessionId":"test-session-1","type":"progress","data":{"type":"hook","hook":"session-start"}}
+{"sessionId":"test-session-1","cwd":"/Users/test/my-project","type":"progress","data":{"type":"hook","hook":"session-start"}}
 {"sessionId":"test-session-1","type":"user","message":{"role":"user","content":"Hello, can you help me?"}}
 {"sessionId":"test-session-1","message":{"role":"assistant","model":"claude-opus-4-6","content":[{"type":"text","text":"Let me check that for you."},{"type":"tool_use","name":"Bash","id":"tool1","input":{"command":"ls"}}],"usage":{"input_tokens":500,"output_tokens":120,"cache_creation_input_tokens":100,"cache_read_input_tokens":200}}}
 {"sessionId":"test-session-1","message":{"role":"assistant","model":"claude-opus-4-6","content":[{"type":"tool_use","name":"Agent","id":"tool2","input":{"description":"search codebase","prompt":"Find all files"}}],"usage":{"input_tokens":300,"output_tokens":80,"cache_creation_input_tokens":50,"cache_read_input_tokens":100}}}

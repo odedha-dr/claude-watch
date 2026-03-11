@@ -26,9 +26,15 @@
       font-size: 14px;
       padding: 16px;
     }
-    h1 { font-size: 18px; margin-bottom: 16px; color: var(--accent); }
+    h1 { font-size: 18px; color: var(--accent); }
     h2 { font-size: 15px; margin-bottom: 12px; color: var(--text-muted); }
     .container { max-width: 1400px; margin: 0 auto; }
+    .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+    .filter-toggle {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 13px; color: var(--text-muted); cursor: pointer; user-select: none;
+    }
+    .filter-toggle input { accent-color: var(--accent); cursor: pointer; }
     table { width: 100%; border-collapse: collapse; margin-bottom: 24px; }
     th {
       text-align: left; padding: 8px 12px;
@@ -40,12 +46,7 @@
     tr.session-row { cursor: pointer; transition: background 0.15s; }
     tr.session-row:hover { background: var(--bg-hover); }
     tr.session-row.selected { background: var(--bg-selected); }
-    .status-dot {
-      display: inline-block; width: 8px; height: 8px;
-      border-radius: 50%; margin-right: 6px;
-    }
-    .status-active { background: var(--green); box-shadow: 0 0 6px var(--green); }
-    .status-inactive { background: var(--text-muted); }
+    tr.session-row.inactive { opacity: 0.5; }
     .detail-panel {
       background: var(--bg-surface); border-radius: 8px;
       padding: 20px; border: 1px solid var(--border);
@@ -67,17 +68,22 @@
     .meta-row span { color: var(--text); }
     .empty { text-align: center; padding: 40px; color: var(--text-muted); }
     .num { font-variant-numeric: tabular-nums; }
+    .folder { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>claude-watch</h1>
+    <div class="header">
+      <h1>claude-watch</h1>
+      <label class="filter-toggle">
+        <input type="checkbox" id="show-inactive"> Show inactive sessions
+      </label>
+    </div>
     <table>
       <thead>
         <tr>
-          <th>Status</th>
           <th>Session</th>
-          <th>Started</th>
+          <th>Folder</th>
           <th>Model</th>
           <th>Tokens In</th>
           <th>Tokens Out</th>
@@ -104,6 +110,7 @@
         </div>
       </div>
       <div class="meta-row">
+        <div>Folder: <span id="d-cwd">-</span></div>
         <div>Agent spawns: <span id="d-agents">0</span></div>
         <div>Skills: <span id="d-skills">-</span></div>
         <div>Subagents: <span id="d-subagents">0</span></div>
@@ -115,44 +122,45 @@
   </div>
 
   <script>
-    let sessions = [];
+    let allSessions = [];
     let selectedId = null;
+    let showInactive = false;
+
+    const checkbox = document.getElementById('show-inactive');
+    checkbox.addEventListener('change', () => {
+      showInactive = checkbox.checked;
+      renderTable();
+      renderDetail();
+    });
 
     function fmt(n) {
       return n.toLocaleString();
     }
 
-    function relTime(dateStr) {
-      if (!dateStr) return '-';
-      const d = new Date(dateStr);
-      const diff = Date.now() - d.getTime();
-      const mins = Math.floor(diff / 60000);
-      if (mins < 1) return 'just now';
-      if (mins < 60) return mins + 'm ago';
-      const hrs = Math.floor(mins / 60);
-      if (hrs < 24) return hrs + 'h ago';
-      return Math.floor(hrs / 24) + 'd ago';
+    function getVisibleSessions() {
+      if (showInactive) return allSessions;
+      return allSessions.filter(s => s.isActive);
     }
 
     function renderTable() {
       const tbody = document.getElementById('session-table');
       const empty = document.getElementById('empty-msg');
+      const sessions = getVisibleSessions();
 
       if (sessions.length === 0) {
         tbody.innerHTML = '';
         empty.style.display = 'block';
+        empty.textContent = showInactive ? 'No sessions found.' : 'No active sessions. Check "Show inactive sessions" to see all.';
         return;
       }
       empty.style.display = 'none';
 
       tbody.innerHTML = sessions.map(s => {
         const sel = s.id === selectedId ? ' selected' : '';
-        const dot = s.isActive ? 'status-active' : 'status-inactive';
-        const label = s.isActive ? 'active' : 'idle';
-        return `<tr class="session-row${sel}" data-id="${s.id}">
-          <td><span class="status-dot ${dot}"></span>${label}</td>
+        const inactive = !s.isActive ? ' inactive' : '';
+        return `<tr class="session-row${sel}${inactive}" data-id="${s.id}">
           <td>${s.id.substring(0, 12)}</td>
-          <td>${relTime(s.startedAt)}</td>
+          <td class="folder" title="${s.cwd || ''}">${s.cwd ? s.cwd.split('/').slice(-2).join('/') : '-'}</td>
           <td>${s.model || '-'}</td>
           <td class="num">${fmt(s.tokens.input)}</td>
           <td class="num">${fmt(s.tokens.output)}</td>
@@ -171,7 +179,7 @@
 
     function renderDetail() {
       const panel = document.getElementById('detail-panel');
-      const s = sessions.find(s => s.id === selectedId);
+      const s = allSessions.find(s => s.id === selectedId);
       if (!s) { panel.style.display = 'none'; return; }
       panel.style.display = 'block';
 
@@ -183,6 +191,7 @@
       document.getElementById('d-total').textContent = fmt(
         s.tokens.input + s.tokens.output + s.tokens.cacheCreation + s.tokens.cacheRead
       );
+      document.getElementById('d-cwd').textContent = s.cwd || '-';
       document.getElementById('d-agents').textContent = s.agentSpawns;
       document.getElementById('d-skills').textContent = s.skillInvocations.length > 0
         ? s.skillInvocations.join(', ') : '-';
@@ -206,9 +215,10 @@
     // SSE connection
     const evtSource = new EventSource('/api/events');
     evtSource.onmessage = (event) => {
-      sessions = JSON.parse(event.data);
-      if (!selectedId && sessions.length > 0) {
-        selectedId = sessions[0].id;
+      allSessions = JSON.parse(event.data);
+      const visible = getVisibleSessions();
+      if (!selectedId && visible.length > 0) {
+        selectedId = visible[0].id;
       }
       renderTable();
       renderDetail();

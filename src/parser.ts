@@ -69,6 +69,7 @@ export async function parseSessionFile(filePath: string, project: string): Promi
     id: basename(filePath, '.jsonl'),
     project,
     model: '',
+    cwd: '',
     startedAt: null,
     isActive: false,
     tokens: { input: 0, output: 0, cacheCreation: 0, cacheRead: 0 },
@@ -91,6 +92,11 @@ export async function parseSessionFile(filePath: string, project: string): Promi
     // Use sessionId from first entry that has one
     if (raw.sessionId && session.id === basename(filePath, '.jsonl')) {
       session.id = raw.sessionId;
+    }
+
+    // Use cwd from first entry that has one
+    if (raw.cwd && !session.cwd) {
+      session.cwd = raw.cwd;
     }
 
     const metrics = parseEntry(raw);

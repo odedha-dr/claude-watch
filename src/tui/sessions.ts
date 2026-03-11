@@ -13,17 +13,6 @@ function formatNum(n: number): string {
   return String(n);
 }
 
-function relTime(d: Date | null): string {
-  if (!d) return '-';
-  const diff = Date.now() - d.getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return 'now';
-  if (mins < 60) return mins + 'm';
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return hrs + 'h';
-  return Math.floor(hrs / 24) + 'd';
-}
-
 export function createSessionTable(screen: blessed.Widgets.Screen): SessionTableWidget {
   const table = contrib.table({
     top: 0,
@@ -35,7 +24,7 @@ export function createSessionTable(screen: blessed.Widgets.Screen): SessionTable
     vi: true,
     interactive: true,
     columnSpacing: 2,
-    columnWidth: [3, 14, 8, 18, 10, 10, 6, 8],
+    columnWidth: [14, 24, 18, 10, 10, 6],
     border: { type: 'line' },
     style: {
       border: { fg: 'cyan' },
@@ -47,16 +36,14 @@ export function createSessionTable(screen: blessed.Widgets.Screen): SessionTable
   screen.append(table);
 
   const update = (sessions: SessionData[], selectedIndex: number) => {
-    const headers = ['#', 'Session ID', 'Started', 'Model', 'Tokens In', 'Tokens Out', 'Comp.', 'Status'];
-    const rows = sessions.map((s, i) => [
-      String(i + 1),
+    const headers = ['Session', 'Folder', 'Model', 'Tokens In', 'Tokens Out', 'Comp.'];
+    const rows = sessions.map(s => [
       s.id.substring(0, 12),
-      relTime(s.startedAt),
+      s.cwd ? s.cwd.split('/').slice(-2).join('/') : '-',
       s.model || '-',
       formatNum(s.tokens.input),
       formatNum(s.tokens.output),
       String(s.compactions),
-      s.isActive ? '● active' : '  idle',
     ]);
 
     table.setData({ headers, data: rows });

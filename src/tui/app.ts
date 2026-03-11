@@ -16,12 +16,15 @@ export function startApp(watcher: SessionWatcher): void {
 
   let sessions: SessionData[] = [];
   let selectedIndex = 0;
+  let activeOnly = true;
 
   function refresh() {
-    sessions = watcher.getSessions();
+    sessions = watcher.getSessions(activeOnly);
     if (selectedIndex >= sessions.length) {
       selectedIndex = Math.max(0, sessions.length - 1);
     }
+    const label = activeOnly ? ' Sessions (active only) [a=show all] ' : ' Sessions (all) [a=active only] ';
+    (sessionTable.table as any).setLabel(label);
     sessionTable.update(sessions, selectedIndex);
     detailPanel.update(sessions[selectedIndex] || null);
     screen.render();
@@ -57,6 +60,12 @@ export function startApp(watcher: SessionWatcher): void {
 
   screen.key(['r'], () => {
     watcher.refresh();
+  });
+
+  screen.key(['a'], () => {
+    activeOnly = !activeOnly;
+    selectedIndex = 0;
+    refresh();
   });
 
   // Initial render

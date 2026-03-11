@@ -59,10 +59,10 @@ export async function discoverSessions(projectPath: string): Promise<SessionData
           // No subagents directory
         }
 
-        // Determine active status: file modified in last 2 minutes
+        // Determine active status: file modified in last 30 minutes
         const fileStat = await stat(filePath);
-        const twoMinAgo = Date.now() - 2 * 60 * 1000;
-        session.isActive = fileStat.mtimeMs > twoMinAgo;
+        const thirtyMinAgo = Date.now() - 30 * 60 * 1000;
+        session.isActive = fileStat.mtimeMs > thirtyMinAgo;
         session.startedAt = fileStat.birthtimeMs ? new Date(fileStat.birthtimeMs) : null;
 
         sessions.push(session);

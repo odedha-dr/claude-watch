@@ -56,8 +56,12 @@ export class SessionWatcher extends EventEmitter {
     }
   }
 
-  getSessions(): SessionData[] {
-    return Array.from(this.sessions.values()).sort((a, b) => {
+  getSessions(activeOnly: boolean = false): SessionData[] {
+    let sessions = Array.from(this.sessions.values());
+    if (activeOnly) {
+      sessions = sessions.filter(s => s.isActive);
+    }
+    return sessions.sort((a, b) => {
       if (!a.startedAt || !b.startedAt) return 0;
       return b.startedAt.getTime() - a.startedAt.getTime();
     });

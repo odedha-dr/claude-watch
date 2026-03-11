@@ -44,6 +44,7 @@ export interface SessionData {
   id: string;
   project: string;
   model: string;
+  cwd: string;
   startedAt: Date | null;
   isActive: boolean;
   tokens: {

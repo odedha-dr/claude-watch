@@ -76,5 +76,6 @@ describe('parseSessionFile', () => {
     expect(session.toolCalls['Bash']).toBeGreaterThanOrEqual(1);
     expect(session.agentSpawns).toBeGreaterThanOrEqual(1);
     expect(session.skillInvocations).toContain('brainstorming');
+    expect(session.cwd).toBe('/Users/test/my-project');
   });
 });
