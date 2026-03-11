@@ -1902,43 +1902,102 @@
       }
 
       // Layout constants
-      const nodeWidths = { session: 240, agent: 200, skill: 140 };
-      const nodeHeights = { session: 120, agent: 90, skill: 60 };
+      const nodeWidths = { session: 260, agent: 220, skill: 160 };
+      const nodeHeights = { session: 100, agent: 90, skill: 56 };
       const hGap = 30;
-      const vGap = 120;
+      const vGap = 60;       // vertical gap between rows
+      const edgeGap = 40;    // space for edge lines between rows
       const padding = 40;
 
-      function layoutTree(root) {
-        const children = root.children || [];
-        const totalChildWidth = children.reduce((sum, c) => sum + nodeWidths[c.type] + hGap, -hGap);
-        const rootW = nodeWidths[root.type] || nodeWidths.session;
-        const rootH = nodeHeights[root.type] || nodeHeights.session;
-        const canvasWidth = Math.max(totalChildWidth, rootW);
-
-        const positions = [];
-        const rootX = padding + canvasWidth / 2;
-        const rootY = padding;
-        positions.push({ node: root, x: rootX, y: rootY, w: rootW, h: rootH });
-
-        if (children.length > 0) {
-          let childX = rootX - totalChildWidth / 2;
-          children.forEach(child => {
-            const w = nodeWidths[child.type] || 140;
-            const h = nodeHeights[child.type] || 60;
-            positions.push({
-              node: child,
-              x: childX + w / 2,
-              y: rootY + rootH + vGap,
-              w, h
-            });
-            childX += w + hGap;
-          });
+      // Group children by turn number — same turn = parallel
+      function groupByTurn(children) {
+        const groups = [];
+        const turnMap = new Map();
+        for (const child of children) {
+          const key = child.turnNumber;
+          if (!turnMap.has(key)) {
+            const group = { turnNumber: key, items: [] };
+            turnMap.set(key, group);
+            groups.push(group);
+          }
+          turnMap.get(key).items.push(child);
         }
-
-        return positions;
+        return groups;
       }
 
-      const positions = layoutTree(fg);
+      function layoutSequential(root) {
+        const positions = [];
+        const edges = [];  // {fromIdx, toIdx, label}
+        const children = root.children || [];
+        const groups = groupByTurn(children);
+
+        // First pass: calculate max row width to center everything
+        let maxRowWidth = nodeWidths[root.type];
+        for (const group of groups) {
+          const rowW = group.items.reduce((sum, c) => sum + (nodeWidths[c.type] || 200) + hGap, -hGap);
+          if (rowW > maxRowWidth) maxRowWidth = rowW;
+        }
+
+        const centerX = padding + maxRowWidth / 2;
+        let curY = padding;
+
+        // Root node
+        const rootW = nodeWidths[root.type];
+        const rootH = nodeHeights[root.type];
+        positions.push({ node: root, x: centerX, y: curY, w: rootW, h: rootH });
+        const rootIdx = 0;
+        curY += rootH + edgeGap;
+
+        // Each group is a row; edges chain rows sequentially
+        let prevRowIndices = [rootIdx];
+
+        for (const group of groups) {
+          const items = group.items;
+          const rowW = items.reduce((sum, c) => sum + (nodeWidths[c.type] || 200) + hGap, -hGap);
+          let startX = centerX - rowW / 2;
+          const rowIndices = [];
+
+          for (const child of items) {
+            const w = nodeWidths[child.type] || 200;
+            const h = nodeHeights[child.type] || 70;
+            const idx = positions.length;
+            positions.push({
+              node: child,
+              x: startX + w / 2,
+              y: curY,
+              w, h
+            });
+            rowIndices.push(idx);
+            startX += w + hGap;
+          }
+
+          // Draw edges: if prev row is single node → fan out to all current items.
+          // If prev row is multiple (parallel) → converge to center, then fan out.
+          // Simplified: connect from the center-most prev node to each current node.
+          // For cleaner visual, pick the single closest prev node per current node.
+          if (prevRowIndices.length === 1) {
+            // Single prev → fan out to all current
+            for (const toIdx of rowIndices) {
+              edges.push({ fromIdx: prevRowIndices[0], toIdx, label: `Turn #${group.turnNumber}`, showLabel: true });
+            }
+          } else {
+            // Multiple prev (parallel) → converge: each prev connects to each next
+            // but we only show one label per current node
+            for (const toIdx of rowIndices) {
+              for (let pi = 0; pi < prevRowIndices.length; pi++) {
+                edges.push({ fromIdx: prevRowIndices[pi], toIdx, label: `Turn #${group.turnNumber}`, showLabel: pi === 0 });
+              }
+            }
+          }
+
+          curY += Math.max(...items.map(c => nodeHeights[c.type] || 70)) + edgeGap + vGap;
+          prevRowIndices = rowIndices;
+        }
+
+        return { positions, edges };
+      }
+
+      const { positions, edges } = layoutSequential(fg);
 
       // Calculate SVG dimensions
       let maxX = 0, maxY = 0;
@@ -1956,20 +2015,21 @@
       let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${svgW}" height="${svgH}" viewBox="0 0 ${svgW} ${svgH}" style="display:block;">`;
 
       // Draw edges first (behind nodes)
-      const rootPos = positions[0];
-      for (let i = 1; i < positions.length; i++) {
-        const cp = positions[i];
-        const x1 = rootPos.x;
-        const y1 = rootPos.y + rootPos.h;
-        const x2 = cp.x;
-        const y2 = cp.y;
+      for (const edge of edges) {
+        const fp = positions[edge.fromIdx];
+        const tp = positions[edge.toIdx];
+        const x1 = fp.x;
+        const y1 = fp.y + fp.h;
+        const x2 = tp.x;
+        const y2 = tp.y;
         const midY = (y1 + y2) / 2;
-        const edgeClass = cp.node.type === 'agent' ? 'agent' : 'skill';
+        const edgeClass = tp.node.type === 'agent' ? 'agent' : 'skill';
         svg += `<path class="flow-edge ${edgeClass}" d="M ${x1} ${y1} C ${x1} ${midY}, ${x2} ${midY}, ${x2} ${y2}" />`;
-        // Edge label
-        const labelX = (x1 + x2) / 2;
-        const labelY = midY - 4;
-        svg += `<text class="flow-edge-label" x="${labelX}" y="${labelY}" text-anchor="middle">Turn #${cp.node.turnNumber}</text>`;
+        if (edge.showLabel) {
+          const labelX = (x1 + x2) / 2;
+          const labelY = midY - 4;
+          svg += `<text class="flow-edge-label" x="${labelX}" y="${labelY}" text-anchor="middle">${escHtml(edge.label)}</text>`;
+        }
       }
 
       // Draw nodes
