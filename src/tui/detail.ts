@@ -1,6 +1,6 @@
 import blessed from 'blessed';
-import contrib from 'blessed-contrib';
 import type { SessionData } from '../types.js';
+import { calculateCost } from '../cost.js';
 
 export interface DetailPanelWidget {
   container: blessed.Widgets.BoxElement;
@@ -9,6 +9,15 @@ export interface DetailPanelWidget {
 
 function fmt(n: number): string {
   return n.toLocaleString();
+}
+
+function fmtCost(n: number): string {
+  return '$' + n.toFixed(2);
+}
+
+function textBar(value: number, max: number, width: number): string {
+  const filled = max > 0 ? Math.round((value / max) * width) : 0;
+  return '█'.repeat(filled) + '░'.repeat(width - filled);
 }
 
 export function createDetailPanel(screen: blessed.Widgets.Screen): DetailPanelWidget {
@@ -22,111 +31,81 @@ export function createDetailPanel(screen: blessed.Widgets.Screen): DetailPanelWi
     style: {
       border: { fg: 'cyan' },
     },
+    tags: true,
     scrollable: true,
     alwaysScroll: true,
+    keys: true,
+    vi: true,
+    padding: { left: 1, right: 1, top: 0, bottom: 0 },
   });
 
   screen.append(container);
 
-  const tokenBox = blessed.box({
-    parent: container,
-    top: 0,
-    left: 0,
-    width: '40%',
-    height: '70%',
-    padding: { left: 1, top: 0 },
-  });
-
-  const barBox = blessed.box({
-    parent: container,
-    top: 0,
-    left: '40%',
-    width: '60%',
-    height: '70%',
-  });
-
-  let barChart: ReturnType<typeof contrib.bar> | null = null;
-
-  const metaBox = blessed.box({
-    parent: container,
-    top: '70%',
-    left: 0,
-    width: '100%',
-    height: '30%',
-    padding: { left: 1 },
-  });
-
   const update = (session: SessionData | null) => {
     if (!session) {
-      tokenBox.setContent('{gray-fg}No session selected{/gray-fg}');
-      if (barChart) { barChart.detach(); barChart = null; }
-      metaBox.setContent('');
-      screen.render();
+      container.setContent('{gray-fg}No session selected{/gray-fg}');
       return;
     }
 
-    // Token breakdown
-    const total = session.tokens.input + session.tokens.output +
-      session.tokens.cacheCreation + session.tokens.cacheRead;
-    tokenBox.setContent(
-      `{bold}{cyan-fg}Tokens{/cyan-fg}{/bold}\n` +
-      `\n` +
-      `  Input:         {white-fg}${fmt(session.tokens.input)}{/white-fg}\n` +
-      `  Output:        {white-fg}${fmt(session.tokens.output)}{/white-fg}\n` +
-      `  Cache created: {white-fg}${fmt(session.tokens.cacheCreation)}{/white-fg}\n` +
-      `  Cache read:    {white-fg}${fmt(session.tokens.cacheRead)}{/white-fg}\n` +
-      `  ─────────────────────\n` +
-      `  Total:         {bold}{white-fg}${fmt(total)}{/white-fg}{/bold}`
-    );
-    tokenBox.options.tags = true;
-    (tokenBox as any).parseTags = true;
+    const cost = calculateCost(session.model, session.tokens);
+    const totalIn = session.tokens.input + session.tokens.cacheCreation + session.tokens.cacheRead;
+    const totalTokens = totalIn + session.tokens.output;
 
-    // Tool call bar chart
+    // Build content as a single string
+    let lines: string[] = [];
+
+    // Header
+    const model = session.model || '?';
+    const active = session.isActive ? '{green-fg}● active{/green-fg}' : '{gray-fg}○ idle{/gray-fg}';
+    const folder = session.cwd ? session.cwd.replace(/^\/Users\/[^/]+/, '~') : '-';
+    lines.push(`{bold}{cyan-fg}${session.id.substring(0, 12)}{/cyan-fg}{/bold}  ${active}  {yellow-fg}${model}{/yellow-fg}`);
+    lines.push(`{gray-fg}${folder}{/gray-fg}`);
+    lines.push('');
+
+    // Tokens & Cost (side by side conceptually, but rendered as lines)
+    lines.push('{bold}{cyan-fg}Tokens{/cyan-fg}{/bold}                          {bold}{cyan-fg}Cost{/cyan-fg}{/bold}');
+    lines.push(`  Input:         {white-fg}${fmt(session.tokens.input).padStart(10)}{/white-fg}     Input:  {white-fg}${fmtCost(cost.input).padStart(8)}{/white-fg}`);
+    lines.push(`  Output:        {white-fg}${fmt(session.tokens.output).padStart(10)}{/white-fg}     Output: {white-fg}${fmtCost(cost.output).padStart(8)}{/white-fg}`);
+    lines.push(`  Cache create:  {white-fg}${fmt(session.tokens.cacheCreation).padStart(10)}{/white-fg}     Cache:  {white-fg}${fmtCost(cost.cacheWrite + cost.cacheRead).padStart(8)}{/white-fg}`);
+    lines.push(`  Cache read:    {white-fg}${fmt(session.tokens.cacheRead).padStart(10)}{/white-fg}`);
+    lines.push(`  ─────────────────────────     ─────────────`);
+    lines.push(`  Total In:      {bold}{white-fg}${fmt(totalIn).padStart(10)}{/white-fg}{/bold}     {bold}Total:  {green-fg}${fmtCost(cost.total).padStart(8)}{/green-fg}{/bold}`);
+    lines.push(`  Total:         {bold}{white-fg}${fmt(totalTokens).padStart(10)}{/white-fg}{/bold}`);
+    lines.push('');
+
+    // Tool calls as text bars
     const entries = Object.entries(session.toolCalls)
       .sort((a, b) => b[1] - a[1])
-      .slice(0, 8);
-
-    if (barChart) { barChart.detach(); barChart = null; }
+      .slice(0, 12);
 
     if (entries.length > 0) {
-      barChart = contrib.bar({
-        parent: barBox,
-        top: 0,
-        left: 0,
-        width: '100%',
-        height: '100%',
-        label: ' Tool Calls ',
-        barWidth: 6,
-        barSpacing: 2,
-        maxHeight: Math.max(...entries.map(e => e[1])),
-        xOffset: 0,
-        style: { fg: 'cyan' },
-        border: { type: 'line' },
-      } as any);
-
-      barChart.setData({
-        titles: entries.map(e => e[0].substring(0, 6)),
-        data: entries.map(e => e[1]),
-      });
+      const maxCount = entries[0][1];
+      const barWidth = 20;
+      lines.push('{bold}{cyan-fg}Tool Calls{/cyan-fg}{/bold}');
+      for (const [name, count] of entries) {
+        const bar = textBar(count, maxCount, barWidth);
+        lines.push(`  {white-fg}${name.padEnd(16)}{/white-fg} {cyan-fg}${bar}{/cyan-fg} ${String(count).padStart(4)}`);
+      }
+      lines.push('');
     }
 
-    // Meta info
-    const skills = session.skillInvocations.length > 0
-      ? session.skillInvocations.join(', ')
-      : '-';
-    const cwdDisplay = session.cwd || '-';
-    metaBox.setContent(
-      `{bold}{cyan-fg}Meta{/cyan-fg}{/bold}  ` +
-      `Folder: {white-fg}${cwdDisplay}{/white-fg}  ` +
-      `Agents: {white-fg}${session.agentSpawns}{/white-fg}  ` +
-      `Skills: {white-fg}${skills}{/white-fg}  ` +
-      `Subagents: {white-fg}${session.subagents.length}{/white-fg}  ` +
-      `Compactions: {white-fg}${session.compactions}{/white-fg}`
-    );
-    metaBox.options.tags = true;
-    (metaBox as any).parseTags = true;
+    // Meta
+    lines.push('{bold}{cyan-fg}Meta{/cyan-fg}{/bold}');
+    lines.push(`  Agents: {white-fg}${session.agentSpawns}{/white-fg}  Subagents: {white-fg}${session.subagents.length}{/white-fg}  Compactions: {white-fg}${session.compactions}{/white-fg}`);
 
-    screen.render();
+    if (session.skillInvocations.length > 0) {
+      lines.push(`  Skills: {white-fg}${[...new Set(session.skillInvocations)].join(', ')}{/white-fg}`);
+    }
+
+    if (session.agentDescriptions && session.agentDescriptions.length > 0) {
+      lines.push('');
+      lines.push('{bold}{cyan-fg}Agent Descriptions{/cyan-fg}{/bold}');
+      for (const desc of session.agentDescriptions) {
+        lines.push(`  {gray-fg}›{/gray-fg} {white-fg}${desc}{/white-fg}`);
+      }
+    }
+
+    container.setContent(lines.join('\n'));
   };
 
   return { container, update };
