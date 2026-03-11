@@ -571,6 +571,167 @@
     }
     .subagent-card.expanded .subagent-expanded { display: block; }
 
+    /* ---- Turns Tab ---- */
+    .turn-list { display: flex; flex-direction: column; gap: 2px; }
+    .turn-row {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      overflow: hidden;
+      transition: border-color 0.15s;
+    }
+    .turn-row:hover { border-color: var(--accent); }
+    .turn-row.role-user { border-left: 3px solid #4a9eff; }
+    .turn-row.role-assistant { border-left: 3px solid var(--accent); }
+    .turn-row-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      cursor: pointer;
+      user-select: none;
+      flex-wrap: wrap;
+    }
+    .turn-num {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-muted);
+      min-width: 30px;
+    }
+    .role-badge {
+      display: inline-block;
+      padding: 1px 7px;
+      border-radius: 3px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+    .role-badge.user { background: rgba(74,158,255,0.15); color: #4a9eff; }
+    .role-badge.assistant { background: rgba(0,210,255,0.15); color: var(--accent); }
+    .turn-timestamp {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-variant-numeric: tabular-nums;
+    }
+    .turn-duration {
+      font-size: 11px;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+    .turn-duration.warn { color: var(--orange); }
+    .turn-duration.danger { color: var(--red); }
+    .turn-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 3px;
+    }
+    .turn-pill {
+      display: inline-block;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1px 7px;
+      font-size: 10px;
+      color: var(--accent);
+    }
+    .turn-tokens {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-variant-numeric: tabular-nums;
+      margin-left: auto;
+      white-space: nowrap;
+    }
+    .turn-tokens b { color: var(--text); font-weight: 600; }
+    .stop-badge {
+      display: inline-block;
+      padding: 1px 6px;
+      border-radius: 3px;
+      font-size: 9px;
+      font-weight: 600;
+      background: rgba(136,146,164,0.15);
+      color: var(--text-muted);
+    }
+    .turn-expanded {
+      display: none;
+      padding: 4px 12px 12px 46px;
+      border-top: 1px solid var(--border);
+      background: rgba(0,0,0,0.15);
+    }
+    .turn-row.expanded .turn-expanded { display: block; }
+    .turn-content-block { margin-bottom: 10px; }
+    .turn-content-block:last-child { margin-bottom: 0; }
+    .tcb-thinking-header {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-muted);
+      cursor: pointer;
+      margin-bottom: 4px;
+    }
+    .tcb-thinking-text {
+      font-style: italic;
+      color: var(--text-muted);
+      opacity: 0.7;
+      font-size: 12px;
+      white-space: pre-wrap;
+      word-break: break-word;
+      line-height: 1.5;
+    }
+    .tcb-text {
+      font-size: 12px;
+      white-space: pre-wrap;
+      word-break: break-word;
+      line-height: 1.5;
+    }
+    .tcb-tool-header {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 4px;
+    }
+    .tcb-code {
+      background: #0d1117;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 8px 10px;
+      font-size: 11px;
+      font-family: inherit;
+      white-space: pre-wrap;
+      word-break: break-all;
+      overflow-x: auto;
+      max-height: 400px;
+      overflow-y: auto;
+      line-height: 1.4;
+    }
+    .tcb-code.collapsible { max-height: 120px; overflow: hidden; position: relative; }
+    .tcb-code.collapsible.show-full { max-height: none; overflow-y: auto; }
+    .tcb-code-toggle {
+      font-size: 11px;
+      color: var(--accent);
+      cursor: pointer;
+      margin-top: 4px;
+      display: inline-block;
+    }
+    .tcb-code-toggle:hover { text-decoration: underline; }
+    .tcb-stdout { background: rgba(0,230,118,0.05); border-color: rgba(0,230,118,0.2); }
+    .tcb-stderr { background: rgba(239,83,80,0.05); border-color: rgba(239,83,80,0.2); }
+    .tcb-result-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+      margin: 6px 0 2px;
+    }
+    .interrupted-badge {
+      display: inline-block;
+      padding: 1px 6px;
+      border-radius: 3px;
+      font-size: 9px;
+      font-weight: 600;
+      background: rgba(239,83,80,0.15);
+      color: var(--red);
+      margin-left: 6px;
+    }
+
     /* ---- Skills Tab ---- */
     .skill-group {
       background: var(--bg-surface);
@@ -680,6 +841,7 @@
         <!-- Tabs -->
         <div class="tab-bar">
           <button class="tab-btn active" data-tab="overview">Overview</button>
+          <button class="tab-btn" data-tab="turns">Turns</button>
           <button class="tab-btn" data-tab="tools">Tools</button>
           <button class="tab-btn" data-tab="subagents">Subagents</button>
           <button class="tab-btn" data-tab="skills">Skills</button>
@@ -688,6 +850,7 @@
         <!-- Tab Content -->
         <div class="tab-content">
           <div class="tab-pane active" id="tab-overview"></div>
+          <div class="tab-pane" id="tab-turns"></div>
           <div class="tab-pane" id="tab-tools"></div>
           <div class="tab-pane" id="tab-subagents"></div>
           <div class="tab-pane" id="tab-skills"></div>
@@ -927,6 +1090,7 @@
         selectedDetail = await resp.json();
         renderHeader();
         renderOverview();
+        renderTurns();
         renderTools();
         renderSubagents();
         renderSkills();
@@ -938,7 +1102,7 @@
     }
 
     function clearTabs() {
-      ['tab-overview','tab-tools','tab-subagents','tab-skills'].forEach(id => {
+      ['tab-overview','tab-turns','tab-tools','tab-subagents','tab-skills'].forEach(id => {
         document.getElementById(id).innerHTML = '<div style="padding:20px;color:var(--text-muted)">Loading...</div>';
       });
     }
@@ -1029,6 +1193,225 @@
       `;
     }
 
+    // ---- Turns Tab ----
+    let expandedTurns = new Set();
+    let expandedThinking = new Set();
+    let expandedToolInputs = new Set();
+    let expandedOutputs = new Set();
+
+    function fmtTime(iso) {
+      if (!iso) return '';
+      const d = new Date(iso);
+      return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit' });
+    }
+
+    function fmtDuration(ms) {
+      if (ms == null) return '';
+      if (ms < 1000) return ms + 'ms';
+      return (ms / 1000).toFixed(1) + 's';
+    }
+
+    function durationClass(ms) {
+      if (ms == null) return '';
+      if (ms > 15000) return 'danger';
+      if (ms > 5000) return 'warn';
+      return '';
+    }
+
+    function truncate(str, max) {
+      if (!str || str.length <= max) return { text: str || '', truncated: false };
+      return { text: str.substring(0, max), truncated: true };
+    }
+
+    function renderTurns() {
+      const d = selectedDetail;
+      if (!d) return;
+
+      const turns = d.turns || [];
+      if (turns.length === 0) {
+        document.getElementById('tab-turns').innerHTML =
+          '<div style="padding:20px;text-align:center;color:var(--text-muted)">No turns in this session.</div>';
+        return;
+      }
+
+      let html = '<div class="turn-list">';
+      turns.forEach((t, idx) => {
+        const isExpanded = expandedTurns.has(t.number);
+        const roleClass = t.role === 'user' ? 'role-user' : 'role-assistant';
+        const durClass = durationClass(t.durationMs);
+        const tok = t.tokens || {};
+
+        html += `<div class="turn-row ${roleClass}${isExpanded ? ' expanded' : ''}" data-turn="${t.number}">`;
+        html += `<div class="turn-row-header">`;
+        html += `<span class="turn-num">#${t.number}</span>`;
+        html += `<span class="role-badge ${t.role}">${t.role}</span>`;
+        if (t.timestamp) html += `<span class="turn-timestamp">${fmtTime(t.timestamp)}</span>`;
+        if (t.durationMs != null) html += `<span class="turn-duration${durClass ? ' ' + durClass : ''}">${fmtDuration(t.durationMs)}</span>`;
+
+        // Tool pills
+        if (t.toolCalls && t.toolCalls.length > 0) {
+          html += '<span class="turn-pills">';
+          t.toolCalls.forEach(tc => {
+            html += `<span class="turn-pill">${escHtml(tc)}</span>`;
+          });
+          html += '</span>';
+        }
+
+        // Token summary
+        html += `<span class="turn-tokens">In: <b>${fmt(tok.totalIn || tok.input || 0)}</b> &middot; Out: <b>${fmt(tok.output || 0)}</b>`;
+        if ((tok.cacheCreation || 0) > 0 || (tok.cacheRead || 0) > 0) {
+          html += ` &middot; Cache W: <b>${fmt(tok.cacheCreation || 0)}</b> &middot; Cache R: <b>${fmt(tok.cacheRead || 0)}</b>`;
+        }
+        html += '</span>';
+
+        // Stop reason
+        if (t.stopReason) {
+          html += ` <span class="stop-badge">${escHtml(t.stopReason)}</span>`;
+        }
+
+        html += '</div>'; // end turn-row-header
+
+        // Expanded content
+        html += '<div class="turn-expanded">';
+        const content = (t.content || []).filter(c => c.type !== 'tool_result');
+        if (content.length === 0) {
+          html += '<div style="color:var(--text-muted);font-size:12px;">No content blocks.</div>';
+        }
+        content.forEach((c, ci) => {
+          const blockKey = `${t.number}-${ci}`;
+          html += '<div class="turn-content-block">';
+
+          if (c.type === 'thinking') {
+            const isThinkExpanded = expandedThinking.has(blockKey);
+            const trunc = truncate(c.text, 500);
+            html += `<div class="tcb-thinking-header" data-thinking-key="${blockKey}">▸ Thinking</div>`;
+            html += `<div class="tcb-thinking-text" data-thinking-body="${blockKey}">`;
+            html += escHtml(isThinkExpanded || !trunc.truncated ? (c.text || '') : trunc.text);
+            if (trunc.truncated && !isThinkExpanded) {
+              html += `<span class="tcb-code-toggle" data-thinking-toggle="${blockKey}">... Show more</span>`;
+            } else if (trunc.truncated && isThinkExpanded) {
+              html += `<span class="tcb-code-toggle" data-thinking-toggle="${blockKey}"> Show less</span>`;
+            }
+            html += '</div>';
+          } else if (c.type === 'text') {
+            html += `<div class="tcb-text">${escHtml(c.text || '')}</div>`;
+          } else if (c.type === 'tool_use') {
+            html += '<div class="tcb-tool-header">';
+            html += `<span class="turn-pill">${escHtml(c.toolName || 'unknown')}</span>`;
+            html += '</div>';
+
+            // Tool input
+            if (c.toolInput) {
+              const inputJson = JSON.stringify(c.toolInput, null, 2);
+              const inputLines = inputJson.split('\n').length;
+              const isInputExpanded = expandedToolInputs.has(blockKey);
+              const needsCollapse = inputLines > 5;
+              html += `<div class="tcb-code${needsCollapse && !isInputExpanded ? ' collapsible' : ''}" data-tool-input="${blockKey}">${escHtml(inputJson)}</div>`;
+              if (needsCollapse) {
+                html += `<span class="tcb-code-toggle" data-tool-input-toggle="${blockKey}">${isInputExpanded ? 'Collapse' : 'Expand'}</span>`;
+              }
+            }
+
+            // Tool result
+            if (c.toolResult) {
+              const tr = c.toolResult;
+              if (tr.interrupted) {
+                html += `<span class="interrupted-badge">interrupted</span>`;
+              }
+              if (tr.isImage) {
+                html += `<div class="tcb-result-label">Result (image)</div>`;
+                html += `<div style="color:var(--text-muted);font-size:11px;font-style:italic;">Image content not displayed.</div>`;
+              } else {
+                if (tr.stdout) {
+                  html += `<div class="tcb-result-label">stdout</div>`;
+                  const outTrunc = truncate(tr.stdout, 2000);
+                  const outKey = `stdout-${blockKey}`;
+                  const isOutExpanded = expandedOutputs.has(outKey);
+                  html += `<div class="tcb-code tcb-stdout">${escHtml(isOutExpanded || !outTrunc.truncated ? tr.stdout : outTrunc.text)}</div>`;
+                  if (outTrunc.truncated) {
+                    html += `<span class="tcb-code-toggle" data-output-toggle="${outKey}">${isOutExpanded ? 'Show less' : 'Show full output'}</span>`;
+                  }
+                }
+                if (tr.stderr) {
+                  html += `<div class="tcb-result-label">stderr</div>`;
+                  const errTrunc = truncate(tr.stderr, 2000);
+                  const errKey = `stderr-${blockKey}`;
+                  const isErrExpanded = expandedOutputs.has(errKey);
+                  html += `<div class="tcb-code tcb-stderr">${escHtml(isErrExpanded || !errTrunc.truncated ? tr.stderr : errTrunc.text)}</div>`;
+                  if (errTrunc.truncated) {
+                    html += `<span class="tcb-code-toggle" data-output-toggle="${errKey}">${isErrExpanded ? 'Show less' : 'Show full output'}</span>`;
+                  }
+                }
+              }
+            }
+          } else if (c.type === 'other') {
+            html += `<div class="tcb-code">${escHtml(c.text || '')}</div>`;
+          }
+
+          html += '</div>'; // end turn-content-block
+        });
+        html += '</div>'; // end turn-expanded
+        html += '</div>'; // end turn-row
+      });
+      html += '</div>';
+
+      document.getElementById('tab-turns').innerHTML = html;
+
+      // Attach turn expand/collapse
+      document.querySelectorAll('.turn-row-header').forEach(header => {
+        header.addEventListener('click', (e) => {
+          // Don't toggle if clicking a toggle link inside
+          if (e.target.closest('.tcb-code-toggle')) return;
+          const turnNum = parseInt(header.parentElement.dataset.turn);
+          if (expandedTurns.has(turnNum)) expandedTurns.delete(turnNum);
+          else expandedTurns.add(turnNum);
+          renderTurns();
+        });
+      });
+
+      // Thinking toggles
+      document.querySelectorAll('[data-thinking-toggle]').forEach(el => {
+        el.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const key = el.dataset.thinkingToggle;
+          if (expandedThinking.has(key)) expandedThinking.delete(key);
+          else expandedThinking.add(key);
+          renderTurns();
+        });
+      });
+      document.querySelectorAll('.tcb-thinking-header').forEach(el => {
+        el.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const key = el.dataset.thinkingKey;
+          if (expandedThinking.has(key)) expandedThinking.delete(key);
+          else expandedThinking.add(key);
+          renderTurns();
+        });
+      });
+
+      // Tool input toggles
+      document.querySelectorAll('[data-tool-input-toggle]').forEach(el => {
+        el.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const key = el.dataset.toolInputToggle;
+          if (expandedToolInputs.has(key)) expandedToolInputs.delete(key);
+          else expandedToolInputs.add(key);
+          renderTurns();
+        });
+      });
+
+      // Output toggles
+      document.querySelectorAll('[data-output-toggle]').forEach(el => {
+        el.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const key = el.dataset.outputToggle;
+          if (expandedOutputs.has(key)) expandedOutputs.delete(key);
+          else expandedOutputs.add(key);
+          renderTurns();
+        });
+      });
+    }
+
     // ---- Tools Tab ----
     function renderTools() {
       const d = selectedDetail;
@@ -1036,30 +1419,7 @@
 
       let html = '';
 
-      // 1. Tool call timeline
-      html += '<div class="section"><h3>Tool Call Timeline</h3><div class="tool-timeline">';
-      const turnGroups = {};
-      (d.toolCalls || []).forEach(tc => {
-        if (!turnGroups[tc.turnNumber]) turnGroups[tc.turnNumber] = [];
-        turnGroups[tc.turnNumber].push(tc);
-      });
-      const turnNums = Object.keys(turnGroups).map(Number).sort((a,b) => a-b);
-      if (turnNums.length === 0) {
-        html += '<div style="padding:12px 16px;color:var(--text-muted)">No tool calls in this session.</div>';
-      } else {
-        turnNums.forEach(tn => {
-          const tools = turnGroups[tn];
-          html += `<div class="turn-group">
-            <div class="turn-header">Turn #${tn}</div>
-            <div class="turn-tools">
-              ${tools.map(t => `<span class="tool-tag">${escHtml(t.name)}</span>`).join('')}
-            </div>
-          </div>`;
-        });
-      }
-      html += '</div></div>';
-
-      // 2. Aggregated bar chart
+      // Aggregated bar chart
       html += '<div class="section"><h3>Tool Usage</h3><div class="bar-chart">';
       const aggs = (d.toolAggregates || []).slice(0, 15);
       const maxCount = aggs.length > 0 ? aggs[0].count : 1;
@@ -1085,62 +1445,7 @@
         html += '</div></div>';
       }
 
-      // 3. Per-turn breakdown table
-      const significantTurns = (d.turns || []).filter(t =>
-        t.toolCalls.length > 0 || t.tokens.input > 0 || t.tokens.output > 0
-      );
-      if (significantTurns.length > 0) {
-        html += '<div class="section"><h3>Per-Turn Breakdown</h3>';
-        html += '<table class="turns-table" id="turns-table"><thead><tr>';
-        const cols = ['Turn #', 'Role', 'Tools', 'Tokens In', 'Tokens Out'];
-        cols.forEach((col, i) => {
-          const arrow = turnSortCol === i ? (turnSortAsc ? '\u25B2' : '\u25BC') : '';
-          html += `<th data-col="${i}">${col}<span class="sort-arrow">${arrow}</span></th>`;
-        });
-        html += '</tr></thead><tbody>';
-
-        const sorted = [...significantTurns];
-        sorted.sort((a, b) => {
-          let va, vb;
-          switch (turnSortCol) {
-            case 0: va = a.number; vb = b.number; break;
-            case 1: va = a.role; vb = b.role; break;
-            case 2: va = a.toolCalls.length; vb = b.toolCalls.length; break;
-            case 3: va = a.tokens.input; vb = b.tokens.input; break;
-            case 4: va = a.tokens.output; vb = b.tokens.output; break;
-            default: va = a.number; vb = b.number;
-          }
-          if (va < vb) return turnSortAsc ? -1 : 1;
-          if (va > vb) return turnSortAsc ? 1 : -1;
-          return 0;
-        });
-
-        sorted.forEach(t => {
-          html += `<tr>
-            <td>${t.number}</td>
-            <td>${t.role}</td>
-            <td>${t.toolCalls.map(tc => escHtml(tc)).join(', ') || '-'}</td>
-            <td>${fmt(t.tokens.input)}</td>
-            <td>${fmt(t.tokens.output)}</td>
-          </tr>`;
-        });
-        html += '</tbody></table></div>';
-      }
-
       document.getElementById('tab-tools').innerHTML = html;
-
-      // Attach sort handlers
-      const table = document.getElementById('turns-table');
-      if (table) {
-        table.querySelectorAll('th').forEach(th => {
-          th.addEventListener('click', () => {
-            const col = parseInt(th.dataset.col);
-            if (turnSortCol === col) turnSortAsc = !turnSortAsc;
-            else { turnSortCol = col; turnSortAsc = true; }
-            renderTools();
-          });
-        });
-      }
     }
 
     // ---- Subagents Tab ----
