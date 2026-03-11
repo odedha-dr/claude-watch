@@ -1,0 +1,35 @@
+{
+  "name": "claude-watch",
+  "version": "0.1.0",
+  "description": "Live monitoring dashboard for Claude Code sessions",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "claude-watch": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc && cp -r src/web/public dist/web/public",
+    "dev": "tsx src/index.ts",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "files": ["dist", "README.md"],
+  "keywords": ["claude", "claude-code", "monitor", "dashboard", "tui"],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "blessed": "^0.1.81",
+    "blessed-contrib": "^4.11.0",
+    "chokidar": "^5.0.0",
+    "commander": "^14.0.3",
+    "express": "^5.2.1"
+  },
+  "devDependencies": {
+    "@types/blessed": "^0.1.27",
+    "@types/express": "^5.0.6",
+    "@types/node": "^25.4.0",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4"
+  }
+}
