@@ -42,13 +42,20 @@ export async function discoverSessions(projectPath: string): Promise<SessionData
       const filePath = join(projectPath, entry.name);
       try {
         const session = await parseSessionFile(filePath, projectName);
-        // Check for subagents
-        const sessionDir = join(projectPath, basename(entry.name, '.jsonl'));
+        const fileStat = await stat(filePath);
+        let latestMtime = fileStat.mtimeMs;
+
+        // Check for subagents and track their mtimes
+        const subagentDir = join(projectPath, basename(entry.name, '.jsonl'), 'subagents');
         try {
-          const subagentDir = join(sessionDir, 'subagents');
-          const subFiles = await readdir(subagentDir);
-          for (const sf of subFiles.filter(f => f.endsWith('.jsonl'))) {
-            const subData = await parseSessionFile(join(subagentDir, sf), projectName);
+          const subFiles = (await readdir(subagentDir)).filter(f => f.endsWith('.jsonl'));
+          for (const sf of subFiles) {
+            const subPath = join(subagentDir, sf);
+            const subStat = await stat(subPath);
+            if (subStat.mtimeMs > latestMtime) {
+              latestMtime = subStat.mtimeMs;
+            }
+            const subData = await parseSessionFile(subPath, projectName);
             session.subagents.push({
               id: basename(sf, '.jsonl'),
               tokens: { input: subData.tokens.input, output: subData.tokens.output },
@@ -59,10 +66,8 @@ export async function discoverSessions(projectPath: string): Promise<SessionData
           // No subagents directory
         }
 
-        // Determine active status: file modified in last 30 minutes
-        const fileStat = await stat(filePath);
         const thirtyMinAgo = Date.now() - 30 * 60 * 1000;
-        session.isActive = fileStat.mtimeMs > thirtyMinAgo;
+        session.isActive = latestMtime > thirtyMinAgo;
         session.startedAt = fileStat.birthtimeMs ? new Date(fileStat.birthtimeMs) : null;
 
         sessions.push(session);

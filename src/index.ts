@@ -25,16 +25,21 @@ async function resolveProjectPath(options: { project?: string; all?: boolean }):
   }
 
   // Auto-detect: match cwd against known project paths
+  // ~/.claude/projects/ dirs are encoded as -Users-odedha-foo (leading dash kept)
+  // and may have worktree suffixes like --claude-worktrees-<name>
   const cwd = process.cwd();
-  const cwdEncoded = cwd.replace(/\//g, '-').replace(/^-/, '');
+  const cwdEncoded = '-' + cwd.replace(/\//g, '-').replace(/^-/, '');
 
-  const match = projects.find(p => {
+  // Find all matching projects (main + worktree variants), pick the one with most sessions
+  const matches = projects.filter(p => {
     const dirName = p.path.split('/').pop() || '';
-    return dirName === cwdEncoded;
+    return dirName === cwdEncoded || dirName.startsWith(cwdEncoded + '-');
   });
 
-  if (match) {
-    return match.path;
+  if (matches.length > 0) {
+    // Prefer the one with most sessions (likely the most active)
+    matches.sort((a, b) => b.sessionCount - a.sessionCount);
+    return matches[0].path;
   }
 
   // Fallback: most recent project (first in sorted list)
