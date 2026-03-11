@@ -67,6 +67,10 @@ export class SessionWatcher extends EventEmitter {
     });
   }
 
+  getSessionById(id: string): SessionData | undefined {
+    return this.sessions.get(id);
+  }
+
   async stop(): Promise<void> {
     if (this.pollInterval) clearInterval(this.pollInterval);
     if (this.watcher) await this.watcher.close();

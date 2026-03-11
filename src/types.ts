@@ -42,6 +42,7 @@ export interface TokenUsage {
 // Processed session data
 export interface SessionData {
   id: string;
+  filePath: string;
   project: string;
   model: string;
   cwd: string;
@@ -58,6 +59,7 @@ export interface SessionData {
   agentSpawns: number;
   skillInvocations: string[];
   subagents: SubagentData[];
+  agentDescriptions: string[];
 }
 
 export interface SubagentData {
@@ -76,4 +78,75 @@ export interface WatcherEvent {
   type: 'session-updated' | 'session-added' | 'session-removed';
   sessionId: string;
   data: SessionData;
+}
+
+// Turn-level tracking
+export interface Turn {
+  number: number;
+  role: 'user' | 'assistant';
+  toolCalls: string[];
+  tokens: { input: number; output: number };
+}
+
+export interface ToolCallEntry {
+  name: string;
+  turnNumber: number;
+  input?: Record<string, unknown>;
+}
+
+export interface SubagentSpawn {
+  id: string;
+  description: string;
+  model?: string;
+  turnNumber: number;
+}
+
+export interface SkillInvocation {
+  name: string;
+  turnNumber: number;
+  args?: string;
+}
+
+export interface ToolCombination {
+  tools: string[];
+  count: number;
+}
+
+export interface SessionDetail {
+  id: string;
+  project: string;
+  model: string;
+  cwd: string;
+  startedAt: Date | null;
+  isActive: boolean;
+  tokens: {
+    input: number;
+    output: number;
+    cacheCreation: number;
+    cacheRead: number;
+  };
+  cost: { input: number; output: number; cacheWrite: number; cacheRead: number; total: number };
+  compactions: number;
+  turns: Turn[];
+  toolCalls: ToolCallEntry[];
+  toolAggregates: { name: string; count: number }[];
+  toolCombinations: ToolCombination[];
+  subagentSpawns: SubagentSpawn[];
+  skills: SkillInvocation[];
+  subagents: SubagentData[];
+}
+
+export interface SessionSummary {
+  id: string;
+  filePath: string;
+  model: string;
+  cwd: string;
+  tokensIn: number;
+  tokensOut: number;
+  cost: number;
+  isActive: boolean;
+  startedAt: string | null;
+  subagentCount: number;
+  skillNames: string[];
+  subagentDescriptions: string[];
 }
