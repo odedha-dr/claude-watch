@@ -21,22 +21,29 @@ export function startApp(watcher: SessionWatcher): void {
     width: '100%',
     height: 1,
     tags: true,
-    style: { bg: 'blue', fg: 'white' },
+    style: { bg: 'black', fg: 'gray' },
   });
   screen.append(statusBar);
 
   let sessions: SessionData[] = [];
   let selectedIndex = 0;
-  let activeOnly = false;
+  let activeOnly = true;
 
   function updateStatus() {
-    const filterLabel = activeOnly ? 'active only' : 'all';
+    const filterLabel = activeOnly ? 'active' : 'all';
     const count = sessions.length;
     const activeCount = sessions.filter(s => s.isActive).length;
     statusBar.setContent(
-      `  {bold}${count}{/bold} sessions (${activeCount} active) [${filterLabel}]` +
-      `  |  {bold}j/k{/bold} navigate  {bold}a{/bold} toggle filter  {bold}r{/bold} refresh  {bold}q{/bold} quit`
+      ` ${count} sessions (${activeCount} active) [${filterLabel}]` +
+      `  |  j/k:navigate  a:toggle filter  r:refresh  q:quit`
     );
+  }
+
+  function selectSession() {
+    sessionTable.update(sessions, selectedIndex);
+    detailPanel.update(sessions[selectedIndex] || null);
+    updateStatus();
+    screen.render();
   }
 
   function refresh() {
@@ -44,12 +51,9 @@ export function startApp(watcher: SessionWatcher): void {
     if (selectedIndex >= sessions.length) {
       selectedIndex = Math.max(0, sessions.length - 1);
     }
-    const label = activeOnly ? ' Sessions (active only) ' : ' Sessions (all) ';
+    const label = activeOnly ? ' Sessions (active) ' : ' Sessions (all) ';
     (sessionTable.table as any).setLabel(label);
-    sessionTable.update(sessions, selectedIndex);
-    detailPanel.update(sessions[selectedIndex] || null);
-    updateStatus();
-    screen.render();
+    selectSession();
   }
 
   // Subscribe to watcher events
@@ -57,7 +61,7 @@ export function startApp(watcher: SessionWatcher): void {
     refresh();
   });
 
-  // Key bindings — on screen level to avoid table stealing keys
+  // Key bindings
   screen.key(['q', 'C-c'], () => {
     watcher.stop().then(() => process.exit(0));
   });
@@ -65,18 +69,14 @@ export function startApp(watcher: SessionWatcher): void {
   screen.key(['up', 'k'], () => {
     if (selectedIndex > 0) {
       selectedIndex--;
-      sessionTable.update(sessions, selectedIndex);
-      detailPanel.update(sessions[selectedIndex] || null);
-      screen.render();
+      selectSession();
     }
   });
 
   screen.key(['down', 'j'], () => {
     if (selectedIndex < sessions.length - 1) {
       selectedIndex++;
-      sessionTable.update(sessions, selectedIndex);
-      detailPanel.update(sessions[selectedIndex] || null);
-      screen.render();
+      selectSession();
     }
   });
 

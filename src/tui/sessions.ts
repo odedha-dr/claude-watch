@@ -37,7 +37,7 @@ export function createSessionTable(screen: blessed.Widgets.Screen): SessionTable
     label: ' Sessions ',
     keys: false,
     vi: false,
-    interactive: false,
+    interactive: true,
     columnSpacing: 2,
     columnWidth: [3, 7, 7, 22, 9, 9, 7, 5],
     border: { type: 'line' },
