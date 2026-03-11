@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -17,216 +17,1325 @@
       --orange: #ffa726;
       --red: #ef5350;
       --border: #2a3a5c;
+      --model-opus: #ff6b6b;
+      --model-sonnet: #ffd93d;
+      --model-haiku: #6bcb77;
     }
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
       font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
       background: var(--bg);
       color: var(--text);
+      font-size: 13px;
+      height: 100vh;
+      overflow: hidden;
+    }
+    .num { font-variant-numeric: tabular-nums; }
+
+    /* ---- Layout ---- */
+    .layout {
+      display: grid;
+      grid-template-columns: 300px 1fr;
+      height: 100vh;
+    }
+
+    /* ---- Sidebar ---- */
+    .sidebar {
+      background: var(--bg-surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .sidebar-header {
+      padding: 14px 16px 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    .sidebar-header h1 {
+      font-size: 16px;
+      color: var(--accent);
+      margin-bottom: 10px;
+    }
+
+    /* Time filter buttons */
+    .time-filter {
+      display: flex;
+      gap: 4px;
+    }
+    .time-filter button {
+      flex: 1;
+      padding: 5px 0;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text-muted);
+      font-family: inherit;
+      font-size: 11px;
+      cursor: pointer;
+      border-radius: 4px;
+      transition: all 0.15s;
+    }
+    .time-filter button:hover {
+      background: var(--bg-hover);
+      color: var(--text);
+    }
+    .time-filter button.active {
+      background: var(--accent);
+      color: var(--bg);
+      border-color: var(--accent);
+      font-weight: 600;
+    }
+
+    /* Summary widgets */
+    .summary-widgets {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 6px;
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .widget {
+      background: var(--bg);
+      border-radius: 6px;
+      padding: 8px 8px 6px;
+      text-align: center;
+    }
+    .widget-value {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text);
+      font-variant-numeric: tabular-nums;
+    }
+    .widget-label {
+      font-size: 9px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    /* Session tree */
+    .session-tree {
+      flex: 1;
+      overflow-y: auto;
+      padding: 6px 0;
+    }
+    .session-tree::-webkit-scrollbar { width: 6px; }
+    .session-tree::-webkit-scrollbar-track { background: transparent; }
+    .session-tree::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    .session-tree::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+    .tree-item {
+      padding: 7px 12px 7px 16px;
+      cursor: pointer;
+      transition: background 0.12s;
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+    .tree-item:hover { background: var(--bg-hover); }
+    .tree-item.selected { background: var(--bg-selected); }
+
+    .tree-expand {
+      width: 14px;
+      flex-shrink: 0;
+      color: var(--text-muted);
+      font-size: 10px;
+      line-height: 18px;
+      text-align: center;
+      user-select: none;
+    }
+    .tree-expand:empty { width: 14px; }
+
+    .tree-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      margin-top: 5px;
+    }
+    .tree-dot.active { background: var(--green); box-shadow: 0 0 6px var(--green); }
+    .tree-dot.inactive { background: var(--text-muted); opacity: 0.4; }
+
+    .tree-info {
+      flex: 1;
+      min-width: 0;
+    }
+    .tree-id {
+      font-size: 12px;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .tree-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 2px;
+    }
+    .tree-folder {
+      font-size: 10px;
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 140px;
+    }
+    .tree-model {
+      font-size: 10px;
+      padding: 1px 5px;
+      border-radius: 3px;
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+    .tree-cost {
+      font-size: 10px;
+      color: var(--text-muted);
+      flex-shrink: 0;
+      font-variant-numeric: tabular-nums;
+      margin-left: 4px;
+    }
+
+    /* Tree children (subagents/skills) */
+    .tree-children {
+      display: none;
+      padding-left: 38px;
+    }
+    .tree-children.expanded { display: block; }
+    .tree-child {
+      padding: 4px 12px;
+      font-size: 11px;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: background 0.12s;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .tree-child:hover { background: var(--bg-hover); color: var(--text); }
+    .tree-child-icon { margin-right: 6px; }
+
+    /* ---- Main Panel ---- */
+    .main-panel {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .empty-state {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-muted);
+      font-size: 15px;
+    }
+
+    /* Session header */
+    .session-header {
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg-surface);
+    }
+    .session-header-top {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .session-header-id {
       font-size: 14px;
+      font-weight: 700;
+      color: var(--text);
+      word-break: break-all;
+    }
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .badge-active { background: rgba(0,230,118,0.15); color: var(--green); }
+    .badge-inactive { background: rgba(136,146,164,0.15); color: var(--text-muted); }
+    .session-header-meta {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 6px;
+    }
+    .session-header-meta span { margin-right: 16px; }
+
+    /* Tab bar */
+    .tab-bar {
+      display: flex;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg-surface);
+      padding: 0 20px;
+    }
+    .tab-btn {
+      padding: 10px 18px;
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid transparent;
+      color: var(--text-muted);
+      font-family: inherit;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .tab-btn:hover { color: var(--text); }
+    .tab-btn.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+    }
+
+    /* Tab content */
+    .tab-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+    }
+    .tab-content::-webkit-scrollbar { width: 6px; }
+    .tab-content::-webkit-scrollbar-track { background: transparent; }
+    .tab-content::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    .tab-pane { display: none; }
+    .tab-pane.active { display: block; }
+
+    /* ---- Overview Tab ---- */
+    .overview-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+    .card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
       padding: 16px;
     }
-    h1 { font-size: 18px; color: var(--accent); }
-    h2 { font-size: 15px; margin-bottom: 12px; color: var(--text-muted); }
-    .container { max-width: 1400px; margin: 0 auto; }
-    .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
-    .filter-toggle {
-      display: flex; align-items: center; gap: 8px;
-      font-size: 13px; color: var(--text-muted); cursor: pointer; user-select: none;
+    .card h3 {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+      margin-bottom: 12px;
     }
-    .filter-toggle input { accent-color: var(--accent); cursor: pointer; }
-    table { width: 100%; border-collapse: collapse; margin-bottom: 24px; }
-    th {
-      text-align: left; padding: 8px 12px;
-      background: var(--bg-surface); color: var(--text-muted);
-      border-bottom: 2px solid var(--border); font-size: 12px;
-      text-transform: uppercase; letter-spacing: 0.5px;
+    .breakdown-table {
+      width: 100%;
+      border-collapse: collapse;
     }
-    td { padding: 8px 12px; border-bottom: 1px solid var(--border); }
-    tr.session-row { cursor: pointer; transition: background 0.15s; }
-    tr.session-row:hover { background: var(--bg-hover); }
-    tr.session-row.selected { background: var(--bg-selected); }
-    tr.session-row.inactive { opacity: 0.5; }
-    .detail-panel {
-      background: var(--bg-surface); border-radius: 8px;
-      padding: 20px; border: 1px solid var(--border);
+    .breakdown-table td {
+      padding: 4px 0;
+      font-size: 13px;
     }
-    .detail-grid {
-      display: grid; grid-template-columns: 1fr 2fr;
-      gap: 20px; margin-bottom: 16px;
+    .breakdown-table td:first-child { color: var(--text-muted); }
+    .breakdown-table td:last-child {
+      text-align: right;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
     }
-    .token-table td { padding: 4px 12px 4px 0; }
-    .token-label { color: var(--text-muted); }
-    .token-value { text-align: right; font-weight: bold; }
+    .breakdown-table tr.total-row td {
+      border-top: 1px solid var(--border);
+      padding-top: 8px;
+      font-weight: 700;
+    }
+
+    .quick-stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .stat-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+      text-align: center;
+    }
+    .stat-card-value {
+      font-size: 22px;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+    }
+    .stat-card-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    /* ---- Tools Tab ---- */
+    .section { margin-bottom: 24px; }
+    .section h3 {
+      font-size: 13px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 12px;
+    }
+
+    /* Tool timeline */
+    .tool-timeline {
+      max-height: 300px;
+      overflow-y: auto;
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 0;
+    }
+    .tool-timeline::-webkit-scrollbar { width: 6px; }
+    .tool-timeline::-webkit-scrollbar-track { background: transparent; }
+    .tool-timeline::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    .turn-group { padding: 4px 16px; }
+    .turn-group + .turn-group { border-top: 1px solid var(--border); }
+    .turn-header {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-muted);
+      padding: 4px 0 2px;
+    }
+    .turn-tools {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      padding: 2px 0 4px;
+    }
+    .tool-tag {
+      display: inline-block;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 2px 8px;
+      font-size: 11px;
+      color: var(--accent);
+    }
+
+    /* Bar chart */
     .bar-chart { display: flex; flex-direction: column; gap: 6px; }
     .bar-row { display: flex; align-items: center; gap: 8px; }
-    .bar-label { width: 80px; text-align: right; color: var(--text-muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .bar-track { flex: 1; height: 18px; background: var(--bg); border-radius: 3px; overflow: hidden; }
-    .bar-fill { height: 100%; background: var(--accent); border-radius: 3px; transition: width 0.3s; min-width: 2px; }
-    .bar-count { width: 40px; font-size: 12px; color: var(--text-muted); }
-    .meta-row { display: flex; gap: 24px; color: var(--text-muted); font-size: 13px; }
-    .meta-row span { color: var(--text); }
-    .empty { text-align: center; padding: 40px; color: var(--text-muted); }
-    .num { font-variant-numeric: tabular-nums; }
-    .folder { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .bar-label {
+      width: 110px;
+      text-align: right;
+      color: var(--text-muted);
+      font-size: 12px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .bar-track {
+      flex: 1;
+      height: 20px;
+      background: var(--bg);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .bar-fill {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 3px;
+      transition: width 0.3s;
+      min-width: 2px;
+    }
+    .bar-count {
+      width: 40px;
+      font-size: 12px;
+      color: var(--text-muted);
+      font-variant-numeric: tabular-nums;
+      flex-shrink: 0;
+    }
+
+    /* Combos */
+    .combo-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .combo-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 12px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 12px;
+    }
+    .combo-tools { color: var(--text); }
+    .combo-count { color: var(--text-muted); font-variant-numeric: tabular-nums; }
+
+    /* Per-turn table */
+    .turns-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+    .turns-table th {
+      text-align: left;
+      padding: 8px 10px;
+      background: var(--bg-surface);
+      color: var(--text-muted);
+      border-bottom: 2px solid var(--border);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      cursor: pointer;
+      user-select: none;
+      white-space: nowrap;
+    }
+    .turns-table th:hover { color: var(--text); }
+    .turns-table th .sort-arrow { margin-left: 4px; font-size: 9px; }
+    .turns-table td {
+      padding: 6px 10px;
+      border-bottom: 1px solid var(--border);
+      font-variant-numeric: tabular-nums;
+    }
+    .turns-table tr:hover { background: var(--bg-hover); }
+
+    /* ---- Subagents Tab ---- */
+    .sub-summary {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .sub-sort {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 16px;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+    .sub-sort select {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-family: inherit;
+      font-size: 12px;
+      padding: 4px 8px;
+      border-radius: 4px;
+    }
+    .subagent-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    .subagent-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px;
+      cursor: pointer;
+      transition: border-color 0.15s;
+    }
+    .subagent-card:hover { border-color: var(--accent); }
+    .subagent-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 8px;
+    }
+    .subagent-desc {
+      font-size: 13px;
+      font-weight: 600;
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .subagent-stats {
+      display: flex;
+      gap: 12px;
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+    }
+    .subagent-stats span b { color: var(--text); font-weight: 600; }
+    .subagent-top-tools {
+      display: flex;
+      gap: 4px;
+      flex-wrap: wrap;
+    }
+    .subagent-expanded {
+      display: none;
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid var(--border);
+    }
+    .subagent-card.expanded .subagent-expanded { display: block; }
+
+    /* ---- Skills Tab ---- */
+    .skill-group {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      margin-bottom: 10px;
+      overflow: hidden;
+    }
+    .skill-group-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 14px;
+      cursor: pointer;
+      transition: background 0.12s;
+    }
+    .skill-group-header:hover { background: var(--bg-hover); }
+    .skill-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--accent);
+    }
+    .skill-count {
+      font-size: 11px;
+      background: rgba(0,210,255,0.1);
+      color: var(--accent);
+      padding: 2px 8px;
+      border-radius: 10px;
+    }
+    .skill-details {
+      display: none;
+      padding: 0 14px 10px;
+    }
+    .skill-group.expanded .skill-details { display: block; }
+    .skill-invocation {
+      padding: 4px 0;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+    .skill-invocation .turn-num { color: var(--text); }
+    .skill-invocation .skill-args {
+      display: block;
+      margin-top: 2px;
+      padding: 4px 8px;
+      background: var(--bg);
+      border-radius: 4px;
+      font-size: 11px;
+      color: var(--text-muted);
+      word-break: break-all;
+    }
+
+    @media (max-width: 900px) {
+      .layout { grid-template-columns: 1fr; }
+      .sidebar { max-height: 40vh; }
+      .overview-grid { grid-template-columns: 1fr; }
+      .subagent-grid { grid-template-columns: 1fr; }
+    }
   </style>
 </head>
 <body>
-  <div class="container">
-    <div class="header">
-      <h1>claude-watch</h1>
-      <label class="filter-toggle">
-        <input type="checkbox" id="show-inactive"> Show inactive sessions
-      </label>
-    </div>
-    <table>
-      <thead>
-        <tr>
-          <th>Session</th>
-          <th>Folder</th>
-          <th>Model</th>
-          <th>Tokens In</th>
-          <th>Tokens Out</th>
-          <th>Compactions</th>
-        </tr>
-      </thead>
-      <tbody id="session-table"></tbody>
-    </table>
-
-    <div id="detail-panel" class="detail-panel" style="display:none">
-      <h2 id="detail-title">Session Details</h2>
-      <div class="detail-grid">
-        <div>
-          <table class="token-table">
-            <tr><td class="token-label">Input tokens</td><td class="token-value num" id="d-input">-</td></tr>
-            <tr><td class="token-label">Output tokens</td><td class="token-value num" id="d-output">-</td></tr>
-            <tr><td class="token-label">Cache created</td><td class="token-value num" id="d-cache-create">-</td></tr>
-            <tr><td class="token-label">Cache read</td><td class="token-value num" id="d-cache-read">-</td></tr>
-            <tr><td class="token-label" style="border-top:1px solid var(--border);padding-top:4px"><strong>Total</strong></td><td class="token-value num" id="d-total" style="border-top:1px solid var(--border);padding-top:4px">-</td></tr>
-          </table>
-        </div>
-        <div>
-          <div class="bar-chart" id="tool-chart"></div>
+  <div class="layout">
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <div class="sidebar-header">
+        <h1>claude-watch</h1>
+        <div class="time-filter">
+          <button class="active" data-range="today">Today</button>
+          <button data-range="7d">7 Days</button>
+          <button data-range="30d">30 Days</button>
         </div>
       </div>
-      <div class="meta-row">
-        <div>Folder: <span id="d-cwd">-</span></div>
-        <div>Agent spawns: <span id="d-agents">0</span></div>
-        <div>Skills: <span id="d-skills">-</span></div>
-        <div>Subagents: <span id="d-subagents">0</span></div>
-        <div>Compactions: <span id="d-compactions">0</span></div>
+      <div class="summary-widgets">
+        <div class="widget">
+          <div class="widget-value" id="w-tokens">0</div>
+          <div class="widget-label">Tokens</div>
+        </div>
+        <div class="widget">
+          <div class="widget-value" id="w-cost">$0.00</div>
+          <div class="widget-label">Cost</div>
+        </div>
+        <div class="widget">
+          <div class="widget-value" id="w-active">0</div>
+          <div class="widget-label">Active</div>
+        </div>
       </div>
+      <div class="session-tree" id="session-tree"></div>
     </div>
 
-    <div id="empty-msg" class="empty">Waiting for session data...</div>
+    <!-- Main Panel -->
+    <div class="main-panel">
+      <div class="empty-state" id="empty-state">Select a session to view details</div>
+
+      <div id="detail-view" style="display:none;flex:1;display:none;flex-direction:column;overflow:hidden;">
+        <!-- Header -->
+        <div class="session-header">
+          <div class="session-header-top">
+            <span class="session-header-id" id="h-id"></span>
+            <span class="badge" id="h-model"></span>
+            <span class="badge" id="h-status"></span>
+          </div>
+          <div class="session-header-meta">
+            <span id="h-folder"></span>
+            <span id="h-time"></span>
+          </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="tab-bar">
+          <button class="tab-btn active" data-tab="overview">Overview</button>
+          <button class="tab-btn" data-tab="tools">Tools</button>
+          <button class="tab-btn" data-tab="subagents">Subagents</button>
+          <button class="tab-btn" data-tab="skills">Skills</button>
+        </div>
+
+        <!-- Tab Content -->
+        <div class="tab-content">
+          <div class="tab-pane active" id="tab-overview"></div>
+          <div class="tab-pane" id="tab-tools"></div>
+          <div class="tab-pane" id="tab-subagents"></div>
+          <div class="tab-pane" id="tab-skills"></div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script>
+    // ---- State ----
     let allSessions = [];
     let selectedId = null;
-    let showInactive = false;
+    let selectedDetail = null;
+    let timeRange = 'today';
+    let activeTab = 'overview';
+    let turnSortCol = 0;
+    let turnSortAsc = true;
+    let subSortBy = 'tokens';
+    let expandedSessions = new Set();
+    let expandedSubagents = new Set();
+    let expandedSkills = new Set();
 
-    const checkbox = document.getElementById('show-inactive');
-    checkbox.addEventListener('change', () => {
-      showInactive = checkbox.checked;
-      renderTable();
-      renderDetail();
-    });
+    // ---- Utilities ----
+    function fmt(n) { return (n || 0).toLocaleString(); }
+    function fmtCost(n) { return '$' + (n || 0).toFixed(2); }
+    function fmtCostDetail(n) { return '$' + (n || 0).toFixed(4); }
 
-    function fmt(n) {
-      return n.toLocaleString();
+    function shortModel(model) {
+      if (!model) return '?';
+      const m = model.toLowerCase();
+      if (m.includes('opus')) return 'opus';
+      if (m.includes('sonnet')) return 'sonnet';
+      if (m.includes('haiku')) return 'haiku';
+      return model.split('-').pop() || model;
+    }
+
+    function modelColor(model) {
+      const m = shortModel(model);
+      if (m === 'opus') return 'var(--model-opus)';
+      if (m === 'sonnet') return 'var(--model-sonnet)';
+      if (m === 'haiku') return 'var(--model-haiku)';
+      return 'var(--text-muted)';
+    }
+
+    function shortPath(cwd) {
+      if (!cwd) return '-';
+      return cwd.replace(/^\/Users\/[^/]+/, '~');
+    }
+
+    function relativeTime(iso) {
+      if (!iso) return '';
+      const d = new Date(iso);
+      const now = Date.now();
+      const diffMs = now - d.getTime();
+      if (diffMs < 0) return 'just now';
+      const mins = Math.floor(diffMs / 60000);
+      if (mins < 1) return 'just now';
+      if (mins < 60) return mins + 'm ago';
+      const hrs = Math.floor(mins / 60);
+      if (hrs < 24) return hrs + 'h ago';
+      const days = Math.floor(hrs / 24);
+      return days + 'd ago';
+    }
+
+    function fmtDate(iso) {
+      if (!iso) return '';
+      const d = new Date(iso);
+      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) +
+        ' ' + d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    }
+
+    function isInRange(startedAt) {
+      if (!startedAt) return true; // show sessions with no date
+      const d = new Date(startedAt);
+      const now = new Date();
+      if (timeRange === 'today') {
+        const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        return d >= startOfDay;
+      } else if (timeRange === '7d') {
+        return d >= new Date(now.getTime() - 7 * 86400000);
+      } else {
+        return d >= new Date(now.getTime() - 30 * 86400000);
+      }
     }
 
     function getVisibleSessions() {
-      if (showInactive) return allSessions;
-      return allSessions.filter(s => s.isActive);
+      return allSessions.filter(s => isInRange(s.startedAt));
     }
 
-    function renderTable() {
-      const tbody = document.getElementById('session-table');
-      const empty = document.getElementById('empty-msg');
-      const sessions = getVisibleSessions();
+    function escHtml(s) {
+      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
 
-      if (sessions.length === 0) {
-        tbody.innerHTML = '';
-        empty.style.display = 'block';
-        empty.textContent = showInactive ? 'No sessions found.' : 'No active sessions. Check "Show inactive sessions" to see all.';
+    // ---- Time Filter ----
+    document.querySelectorAll('.time-filter button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelector('.time-filter button.active').classList.remove('active');
+        btn.classList.add('active');
+        timeRange = btn.dataset.range;
+        renderSidebar();
+      });
+    });
+
+    // ---- Tab switching ----
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelector('.tab-btn.active').classList.remove('active');
+        btn.classList.add('active');
+        document.querySelector('.tab-pane.active').classList.remove('active');
+        activeTab = btn.dataset.tab;
+        document.getElementById('tab-' + activeTab).classList.add('active');
+      });
+    });
+
+    function switchTab(tab) {
+      document.querySelector('.tab-btn.active').classList.remove('active');
+      document.querySelector('.tab-pane.active').classList.remove('active');
+      activeTab = tab;
+      document.querySelector(`.tab-btn[data-tab="${tab}"]`).classList.add('active');
+      document.getElementById('tab-' + tab).classList.add('active');
+    }
+
+    // ---- Render Sidebar ----
+    function renderSidebar() {
+      const visible = getVisibleSessions();
+
+      // Summary widgets
+      let totalTokens = 0, totalCost = 0, activeCount = 0;
+      visible.forEach(s => {
+        totalTokens += (s.tokensIn || 0) + (s.tokensOut || 0);
+        totalCost += s.cost || 0;
+        if (s.isActive) activeCount++;
+      });
+      document.getElementById('w-tokens').textContent = fmt(totalTokens);
+      document.getElementById('w-cost').textContent = fmtCost(totalCost);
+      document.getElementById('w-active').textContent = activeCount;
+
+      // Session tree
+      const tree = document.getElementById('session-tree');
+      if (visible.length === 0) {
+        tree.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted)">No sessions in this time range.</div>';
         return;
       }
-      empty.style.display = 'none';
 
-      tbody.innerHTML = sessions.map(s => {
-        const sel = s.id === selectedId ? ' selected' : '';
-        const inactive = !s.isActive ? ' inactive' : '';
-        return `<tr class="session-row${sel}${inactive}" data-id="${s.id}">
-          <td>${s.id.substring(0, 12)}</td>
-          <td class="folder" title="${s.cwd || ''}">${s.cwd ? s.cwd.split('/').slice(-2).join('/') : '-'}</td>
-          <td>${s.model || '-'}</td>
-          <td class="num">${fmt(s.tokens.input)}</td>
-          <td class="num">${fmt(s.tokens.output)}</td>
-          <td class="num">${s.compactions}</td>
-        </tr>`;
-      }).join('');
+      let html = '';
+      visible.forEach(s => {
+        const isSelected = s.id === selectedId;
+        const isExpanded = expandedSessions.has(s.id);
+        const hasChildren = (s.subagentDescriptions && s.subagentDescriptions.length > 0) ||
+                            (s.skillNames && s.skillNames.length > 0);
+        const arrow = hasChildren ? (isExpanded ? '\u25BC' : '\u25B6') : '';
+        const mc = modelColor(s.model);
+        const sm = shortModel(s.model);
 
-      tbody.querySelectorAll('.session-row').forEach(row => {
-        row.addEventListener('click', () => {
-          selectedId = row.dataset.id;
-          renderTable();
-          renderDetail();
+        html += `<div class="tree-item${isSelected ? ' selected' : ''}" data-id="${escHtml(s.id)}">
+          <div class="tree-expand">${arrow}</div>
+          <div class="tree-dot ${s.isActive ? 'active' : 'inactive'}"></div>
+          <div class="tree-info">
+            <div class="tree-id">${escHtml(s.id.substring(0, 8))}</div>
+            <div class="tree-meta">
+              <span class="tree-folder" title="${escHtml(s.cwd || '')}">${escHtml(shortPath(s.cwd))}</span>
+              <span class="tree-model" style="color:${mc};border:1px solid ${mc}">${sm}</span>
+              <span class="tree-cost">${fmtCost(s.cost)}</span>
+            </div>
+          </div>
+        </div>`;
+
+        if (hasChildren) {
+          html += `<div class="tree-children${isExpanded ? ' expanded' : ''}" data-parent="${escHtml(s.id)}">`;
+          if (s.subagentDescriptions && s.subagentDescriptions.length > 0) {
+            s.subagentDescriptions.forEach((desc, i) => {
+              html += `<div class="tree-child" data-action="subagent" data-session="${escHtml(s.id)}">
+                <span class="tree-child-icon">\u2514</span>${escHtml(desc || 'Subagent ' + (i + 1))}
+              </div>`;
+            });
+            if (s.subagentCount > s.subagentDescriptions.length) {
+              html += `<div class="tree-child" style="color:var(--text-muted);cursor:default">
+                <span class="tree-child-icon">\u2514</span>+${s.subagentCount - s.subagentDescriptions.length} more subagents
+              </div>`;
+            }
+          }
+          if (s.skillNames && s.skillNames.length > 0) {
+            s.skillNames.forEach(name => {
+              html += `<div class="tree-child" data-action="skill" data-session="${escHtml(s.id)}">
+                <span class="tree-child-icon">\u2514</span>${escHtml(name)}
+              </div>`;
+            });
+          }
+          html += '</div>';
+        }
+      });
+      tree.innerHTML = html;
+
+      // Attach tree events
+      tree.querySelectorAll('.tree-item').forEach(item => {
+        item.addEventListener('click', (e) => {
+          const id = item.dataset.id;
+          // Toggle expand if clicking the arrow
+          const expandEl = item.querySelector('.tree-expand');
+          if (expandEl && expandEl.textContent && e.target === expandEl) {
+            if (expandedSessions.has(id)) expandedSessions.delete(id);
+            else expandedSessions.add(id);
+            renderSidebar();
+            return;
+          }
+          selectSession(id);
+        });
+      });
+
+      tree.querySelectorAll('.tree-child').forEach(child => {
+        child.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const sid = child.dataset.session;
+          const action = child.dataset.action;
+          if (sid !== selectedId) selectSession(sid);
+          if (action === 'subagent') switchTab('subagents');
+          if (action === 'skill') switchTab('skills');
         });
       });
     }
 
-    function renderDetail() {
-      const panel = document.getElementById('detail-panel');
-      const s = allSessions.find(s => s.id === selectedId);
-      if (!s) { panel.style.display = 'none'; return; }
-      panel.style.display = 'block';
+    // ---- Select Session ----
+    async function selectSession(id) {
+      selectedId = id;
+      renderSidebar();
+      document.getElementById('empty-state').style.display = 'none';
+      const dv = document.getElementById('detail-view');
+      dv.style.display = 'flex';
 
-      document.getElementById('detail-title').textContent = 'Session: ' + s.id.substring(0, 16);
-      document.getElementById('d-input').textContent = fmt(s.tokens.input);
-      document.getElementById('d-output').textContent = fmt(s.tokens.output);
-      document.getElementById('d-cache-create').textContent = fmt(s.tokens.cacheCreation);
-      document.getElementById('d-cache-read').textContent = fmt(s.tokens.cacheRead);
-      document.getElementById('d-total').textContent = fmt(
-        s.tokens.input + s.tokens.output + s.tokens.cacheCreation + s.tokens.cacheRead
-      );
-      document.getElementById('d-cwd').textContent = s.cwd || '-';
-      document.getElementById('d-agents').textContent = s.agentSpawns;
-      document.getElementById('d-skills').textContent = s.skillInvocations.length > 0
-        ? s.skillInvocations.join(', ') : '-';
-      document.getElementById('d-subagents').textContent = s.subagents.length;
-      document.getElementById('d-compactions').textContent = s.compactions;
+      // Show loading
+      renderHeader();
+      clearTabs();
 
-      // Tool call bar chart
-      const chart = document.getElementById('tool-chart');
-      const entries = Object.entries(s.toolCalls).sort((a, b) => b[1] - a[1]);
-      const max = entries.length > 0 ? entries[0][1] : 1;
-      chart.innerHTML = entries.slice(0, 10).map(([name, count]) => {
-        const pct = (count / max * 100).toFixed(1);
-        return `<div class="bar-row">
-          <div class="bar-label" title="${name}">${name}</div>
-          <div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>
-          <div class="bar-count">${count}</div>
-        </div>`;
-      }).join('');
+      try {
+        const resp = await fetch('/api/sessions/' + encodeURIComponent(id));
+        if (!resp.ok) throw new Error('Not found');
+        selectedDetail = await resp.json();
+        renderHeader();
+        renderOverview();
+        renderTools();
+        renderSubagents();
+        renderSkills();
+      } catch (err) {
+        console.error('Failed to fetch session detail', err);
+        document.getElementById('tab-overview').innerHTML =
+          '<div style="padding:20px;color:var(--red)">Failed to load session details.</div>';
+      }
     }
 
-    // SSE connection
-    const evtSource = new EventSource('/api/events');
-    evtSource.onmessage = (event) => {
-      allSessions = JSON.parse(event.data);
-      const visible = getVisibleSessions();
-      if (!selectedId && visible.length > 0) {
-        selectedId = visible[0].id;
-      }
-      renderTable();
-      renderDetail();
-    };
+    function clearTabs() {
+      ['tab-overview','tab-tools','tab-subagents','tab-skills'].forEach(id => {
+        document.getElementById(id).innerHTML = '<div style="padding:20px;color:var(--text-muted)">Loading...</div>';
+      });
+    }
 
-    evtSource.onerror = () => {
-      console.warn('SSE connection lost, will reconnect...');
-    };
+    // ---- Render Header ----
+    function renderHeader() {
+      const s = selectedDetail || allSessions.find(s => s.id === selectedId);
+      if (!s) return;
+
+      const id = s.id;
+      const model = s.model;
+      const isActive = s.isActive;
+      const cwd = s.cwd;
+      const startedAt = s.startedAt;
+
+      document.getElementById('h-id').textContent = id;
+
+      const modelBadge = document.getElementById('h-model');
+      const sm = shortModel(model);
+      modelBadge.textContent = sm;
+      const mc = modelColor(model);
+      modelBadge.style.color = mc;
+      modelBadge.style.background = mc.replace(')', ',0.15)').replace('var(', '').replace(')', ')');
+      // For CSS var colors, use inline workaround
+      modelBadge.style.cssText = `color:${mc};background:rgba(0,0,0,0.3);border:1px solid ${mc};padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;`;
+
+      const statusBadge = document.getElementById('h-status');
+      statusBadge.textContent = isActive ? 'Active' : 'Inactive';
+      statusBadge.className = 'badge ' + (isActive ? 'badge-active' : 'badge-inactive');
+
+      const timeStr = startedAt ? fmtDate(startedAt) + ' \u00B7 ' + relativeTime(startedAt) : '';
+      document.getElementById('h-folder').textContent = shortPath(cwd);
+      document.getElementById('h-time').textContent = timeStr;
+    }
+
+    // ---- Overview Tab ----
+    function renderOverview() {
+      const d = selectedDetail;
+      if (!d) return;
+
+      const totalTokens = (d.tokens.input || 0) + (d.tokens.output || 0) +
+        (d.tokens.cacheCreation || 0) + (d.tokens.cacheRead || 0);
+      const totalToolCalls = d.toolCalls ? d.toolCalls.length : 0;
+      const subCount = d.subagents ? d.subagents.length : 0;
+      const skillCount = d.skills ? d.skills.length : 0;
+
+      document.getElementById('tab-overview').innerHTML = `
+        <div class="quick-stats">
+          <div class="stat-card">
+            <div class="stat-card-value">${fmt(totalToolCalls)}</div>
+            <div class="stat-card-label">Tool Calls</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-value">${d.compactions || 0}</div>
+            <div class="stat-card-label">Compactions</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-value">${subCount}</div>
+            <div class="stat-card-label">Subagents</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-value">${skillCount}</div>
+            <div class="stat-card-label">Skills</div>
+          </div>
+        </div>
+        <div class="overview-grid">
+          <div class="card">
+            <h3>Token Breakdown</h3>
+            <table class="breakdown-table">
+              <tr><td>Input</td><td>${fmt(d.tokens.input)}</td></tr>
+              <tr><td>Output</td><td>${fmt(d.tokens.output)}</td></tr>
+              <tr><td>Cache Created</td><td>${fmt(d.tokens.cacheCreation)}</td></tr>
+              <tr><td>Cache Read</td><td>${fmt(d.tokens.cacheRead)}</td></tr>
+              <tr class="total-row"><td>Total</td><td>${fmt(totalTokens)}</td></tr>
+            </table>
+          </div>
+          <div class="card">
+            <h3>Cost Breakdown</h3>
+            <table class="breakdown-table">
+              <tr><td>Input</td><td>${fmtCostDetail(d.cost.input)}</td></tr>
+              <tr><td>Output</td><td>${fmtCostDetail(d.cost.output)}</td></tr>
+              <tr><td>Cache Write</td><td>${fmtCostDetail(d.cost.cacheWrite)}</td></tr>
+              <tr><td>Cache Read</td><td>${fmtCostDetail(d.cost.cacheRead)}</td></tr>
+              <tr class="total-row"><td>Total</td><td>${fmtCost(d.cost.total)}</td></tr>
+            </table>
+          </div>
+        </div>
+      `;
+    }
+
+    // ---- Tools Tab ----
+    function renderTools() {
+      const d = selectedDetail;
+      if (!d) return;
+
+      let html = '';
+
+      // 1. Tool call timeline
+      html += '<div class="section"><h3>Tool Call Timeline</h3><div class="tool-timeline">';
+      const turnGroups = {};
+      (d.toolCalls || []).forEach(tc => {
+        if (!turnGroups[tc.turnNumber]) turnGroups[tc.turnNumber] = [];
+        turnGroups[tc.turnNumber].push(tc);
+      });
+      const turnNums = Object.keys(turnGroups).map(Number).sort((a,b) => a-b);
+      if (turnNums.length === 0) {
+        html += '<div style="padding:12px 16px;color:var(--text-muted)">No tool calls in this session.</div>';
+      } else {
+        turnNums.forEach(tn => {
+          const tools = turnGroups[tn];
+          html += `<div class="turn-group">
+            <div class="turn-header">Turn #${tn}</div>
+            <div class="turn-tools">
+              ${tools.map(t => `<span class="tool-tag">${escHtml(t.name)}</span>`).join('')}
+            </div>
+          </div>`;
+        });
+      }
+      html += '</div></div>';
+
+      // 2. Aggregated bar chart
+      html += '<div class="section"><h3>Tool Usage</h3><div class="bar-chart">';
+      const aggs = (d.toolAggregates || []).slice(0, 15);
+      const maxCount = aggs.length > 0 ? aggs[0].count : 1;
+      aggs.forEach(a => {
+        const pct = (a.count / maxCount * 100).toFixed(1);
+        html += `<div class="bar-row">
+          <div class="bar-label" title="${escHtml(a.name)}">${escHtml(a.name)}</div>
+          <div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>
+          <div class="bar-count">${a.count}</div>
+        </div>`;
+      });
+      html += '</div></div>';
+
+      // Tool combinations
+      if (d.toolCombinations && d.toolCombinations.length > 0) {
+        html += '<div class="section"><h3>Common Tool Combinations</h3><div class="combo-list">';
+        d.toolCombinations.slice(0, 10).forEach(c => {
+          html += `<div class="combo-row">
+            <span class="combo-tools">${c.tools.map(t => escHtml(t)).join(' + ')}</span>
+            <span class="combo-count">${c.count} times</span>
+          </div>`;
+        });
+        html += '</div></div>';
+      }
+
+      // 3. Per-turn breakdown table
+      const significantTurns = (d.turns || []).filter(t =>
+        t.toolCalls.length > 0 || t.tokens.input > 0 || t.tokens.output > 0
+      );
+      if (significantTurns.length > 0) {
+        html += '<div class="section"><h3>Per-Turn Breakdown</h3>';
+        html += '<table class="turns-table" id="turns-table"><thead><tr>';
+        const cols = ['Turn #', 'Role', 'Tools', 'Tokens In', 'Tokens Out'];
+        cols.forEach((col, i) => {
+          const arrow = turnSortCol === i ? (turnSortAsc ? '\u25B2' : '\u25BC') : '';
+          html += `<th data-col="${i}">${col}<span class="sort-arrow">${arrow}</span></th>`;
+        });
+        html += '</tr></thead><tbody>';
+
+        const sorted = [...significantTurns];
+        sorted.sort((a, b) => {
+          let va, vb;
+          switch (turnSortCol) {
+            case 0: va = a.number; vb = b.number; break;
+            case 1: va = a.role; vb = b.role; break;
+            case 2: va = a.toolCalls.length; vb = b.toolCalls.length; break;
+            case 3: va = a.tokens.input; vb = b.tokens.input; break;
+            case 4: va = a.tokens.output; vb = b.tokens.output; break;
+            default: va = a.number; vb = b.number;
+          }
+          if (va < vb) return turnSortAsc ? -1 : 1;
+          if (va > vb) return turnSortAsc ? 1 : -1;
+          return 0;
+        });
+
+        sorted.forEach(t => {
+          html += `<tr>
+            <td>${t.number}</td>
+            <td>${t.role}</td>
+            <td>${t.toolCalls.map(tc => escHtml(tc)).join(', ') || '-'}</td>
+            <td>${fmt(t.tokens.input)}</td>
+            <td>${fmt(t.tokens.output)}</td>
+          </tr>`;
+        });
+        html += '</tbody></table></div>';
+      }
+
+      document.getElementById('tab-tools').innerHTML = html;
+
+      // Attach sort handlers
+      const table = document.getElementById('turns-table');
+      if (table) {
+        table.querySelectorAll('th').forEach(th => {
+          th.addEventListener('click', () => {
+            const col = parseInt(th.dataset.col);
+            if (turnSortCol === col) turnSortAsc = !turnSortAsc;
+            else { turnSortCol = col; turnSortAsc = true; }
+            renderTools();
+          });
+        });
+      }
+    }
+
+    // ---- Subagents Tab ----
+    function renderSubagents() {
+      const d = selectedDetail;
+      if (!d) return;
+
+      const subs = d.subagents || [];
+      const spawns = d.subagentSpawns || [];
+
+      // Calculate totals
+      let totalSubTokens = 0;
+      subs.forEach(s => { totalSubTokens += (s.tokens.input || 0) + (s.tokens.output || 0); });
+
+      let html = '';
+
+      // Summary
+      html += '<div class="sub-summary">';
+      html += `<div class="stat-card"><div class="stat-card-value">${subs.length}</div><div class="stat-card-label">Subagents</div></div>`;
+      html += `<div class="stat-card"><div class="stat-card-value">${fmt(totalSubTokens)}</div><div class="stat-card-label">Total Tokens</div></div>`;
+      html += `<div class="stat-card"><div class="stat-card-value">${spawns.length}</div><div class="stat-card-label">Spawns</div></div>`;
+      html += '</div>';
+
+      if (subs.length === 0) {
+        html += '<div style="padding:20px;text-align:center;color:var(--text-muted)">No subagents in this session.</div>';
+        document.getElementById('tab-subagents').innerHTML = html;
+        return;
+      }
+
+      // Sort selector
+      html += `<div class="sub-sort">Sort by: <select id="sub-sort-select">
+        <option value="tokens"${subSortBy === 'tokens' ? ' selected' : ''}>Tokens</option>
+        <option value="tools"${subSortBy === 'tools' ? ' selected' : ''}>Tool Calls</option>
+      </select></div>`;
+
+      // Sort subagents
+      const sorted = [...subs];
+      sorted.sort((a, b) => {
+        if (subSortBy === 'tokens') {
+          return (b.tokens.input + b.tokens.output) - (a.tokens.input + a.tokens.output);
+        }
+        const aTools = Object.values(a.toolCalls || {}).reduce((s, v) => s + v, 0);
+        const bTools = Object.values(b.toolCalls || {}).reduce((s, v) => s + v, 0);
+        return bTools - aTools;
+      });
+
+      html += '<div class="subagent-grid">';
+      sorted.forEach((sub, idx) => {
+        const spawn = spawns.find(sp => sp.id === sub.id);
+        const desc = spawn ? spawn.description : sub.id;
+        const model = spawn ? spawn.model : null;
+        const isExpanded = expandedSubagents.has(sub.id);
+        const toolEntries = Object.entries(sub.toolCalls || {}).sort((a, b) => b[1] - a[1]);
+        const topTools = toolEntries.slice(0, 3);
+        const totalTools = toolEntries.reduce((s, [, v]) => s + v, 0);
+
+        html += `<div class="subagent-card${isExpanded ? ' expanded' : ''}" data-sub-id="${escHtml(sub.id)}">
+          <div class="subagent-card-header">
+            <div class="subagent-desc" title="${escHtml(desc)}">${escHtml(desc)}</div>
+            ${model ? `<span class="badge" style="color:${modelColor(model)};border:1px solid ${modelColor(model)};font-size:10px;padding:1px 6px;margin-left:6px">${shortModel(model)}</span>` : ''}
+          </div>
+          <div class="subagent-stats">
+            <span>In: <b>${fmt(sub.tokens.input)}</b></span>
+            <span>Out: <b>${fmt(sub.tokens.output)}</b></span>
+            <span>Tools: <b>${totalTools}</b></span>
+          </div>
+          <div class="subagent-top-tools">
+            ${topTools.map(([name, count]) => `<span class="tool-tag">${escHtml(name)} (${count})</span>`).join('')}
+          </div>
+          <div class="subagent-expanded">
+            <div style="margin-bottom:8px">
+              <table class="breakdown-table">
+                <tr><td>Input tokens</td><td>${fmt(sub.tokens.input)}</td></tr>
+                <tr><td>Output tokens</td><td>${fmt(sub.tokens.output)}</td></tr>
+                <tr class="total-row"><td>Total</td><td>${fmt(sub.tokens.input + sub.tokens.output)}</td></tr>
+              </table>
+            </div>
+            ${toolEntries.length > 0 ? (() => {
+              const maxTc = toolEntries[0][1];
+              return '<div class="bar-chart" style="margin-top:8px">' + toolEntries.map(([name, count]) => {
+                const pct = (count / maxTc * 100).toFixed(1);
+                return `<div class="bar-row">
+                  <div class="bar-label" title="${escHtml(name)}">${escHtml(name)}</div>
+                  <div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>
+                  <div class="bar-count">${count}</div>
+                </div>`;
+              }).join('') + '</div>';
+            })() : ''}
+          </div>
+        </div>`;
+      });
+      html += '</div>';
+
+      document.getElementById('tab-subagents').innerHTML = html;
+
+      // Attach events
+      document.querySelectorAll('.subagent-card').forEach(card => {
+        card.addEventListener('click', () => {
+          const id = card.dataset.subId;
+          if (expandedSubagents.has(id)) expandedSubagents.delete(id);
+          else expandedSubagents.add(id);
+          renderSubagents();
+        });
+      });
+
+      const sortSelect = document.getElementById('sub-sort-select');
+      if (sortSelect) {
+        sortSelect.addEventListener('change', () => {
+          subSortBy = sortSelect.value;
+          renderSubagents();
+        });
+      }
+    }
+
+    // ---- Skills Tab ----
+    function renderSkills() {
+      const d = selectedDetail;
+      if (!d) return;
+
+      const skills = d.skills || [];
+      if (skills.length === 0) {
+        document.getElementById('tab-skills').innerHTML =
+          '<div style="padding:20px;text-align:center;color:var(--text-muted)">No skill invocations in this session.</div>';
+        return;
+      }
+
+      // Group by skill name
+      const groups = {};
+      skills.forEach(s => {
+        if (!groups[s.name]) groups[s.name] = [];
+        groups[s.name].push(s);
+      });
+
+      let html = '';
+      Object.entries(groups).forEach(([name, invocations]) => {
+        const isExpanded = expandedSkills.has(name);
+        html += `<div class="skill-group${isExpanded ? ' expanded' : ''}" data-skill="${escHtml(name)}">
+          <div class="skill-group-header">
+            <span class="skill-name">${escHtml(name)}</span>
+            <span class="skill-count">${invocations.length}</span>
+          </div>
+          <div class="skill-details">`;
+        invocations.forEach(inv => {
+          html += `<div class="skill-invocation">
+            <span class="turn-num">Turn #${inv.turnNumber}</span>
+            ${inv.args ? `<span class="skill-args">${escHtml(inv.args)}</span>` : ''}
+          </div>`;
+        });
+        html += '</div></div>';
+      });
+
+      document.getElementById('tab-skills').innerHTML = html;
+
+      // Attach events
+      document.querySelectorAll('.skill-group').forEach(group => {
+        group.querySelector('.skill-group-header').addEventListener('click', () => {
+          const name = group.dataset.skill;
+          if (expandedSkills.has(name)) expandedSkills.delete(name);
+          else expandedSkills.add(name);
+          renderSkills();
+        });
+      });
+    }
+
+    // ---- SSE Connection ----
+    function connectSSE() {
+      const evtSource = new EventSource('/api/events');
+      evtSource.onmessage = (event) => {
+        try {
+          allSessions = JSON.parse(event.data);
+          // Sort: active first, then by startedAt descending
+          allSessions.sort((a, b) => {
+            if (a.isActive !== b.isActive) return a.isActive ? -1 : 1;
+            const ta = a.startedAt ? new Date(a.startedAt).getTime() : 0;
+            const tb = b.startedAt ? new Date(b.startedAt).getTime() : 0;
+            return tb - ta;
+          });
+          renderSidebar();
+          // Update header if selected session is in the list (may have changed active status)
+          if (selectedId) {
+            const s = allSessions.find(s => s.id === selectedId);
+            if (s) renderHeader();
+          }
+        } catch (e) {
+          console.error('Failed to parse SSE data', e);
+        }
+      };
+      evtSource.onerror = () => {
+        console.warn('SSE connection lost, reconnecting...');
+        evtSource.close();
+        setTimeout(connectSSE, 3000);
+      };
+    }
+
+    connectSSE();
   </script>
 </body>
 </html>
