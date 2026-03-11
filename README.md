@@ -1,6 +1,6 @@
 # claude-watch
 
-Live monitoring dashboard for Claude Code sessions. Reads session JSONL logs and displays real-time metrics including token usage, costs, tool calls, and turn-by-turn conversation flow.
+Live monitoring dashboard for Claude Code sessions. Reads session JSONL logs and displays real-time metrics including token usage, costs, tool calls, turn-by-turn conversation flow, and agent/skill graphs.
 
 ## Install & Run
 
@@ -10,11 +10,19 @@ npx claude-watch
 
 Opens a web dashboard at http://localhost:3000 monitoring all your Claude Code sessions.
 
+### Global Install
+
+```bash
+npm install -g claude-watch
+claude-watch
+```
+
 ### Options
 
 ```
 --port <number>   Web server port (default: 3000)
 --project <path>  Monitor a specific ~/.claude/projects/ directory
+--all             Monitor all projects (default for web mode)
 --tui             Launch terminal dashboard instead of web
 ```
 
@@ -27,16 +35,16 @@ npx claude-watch
 # Custom port
 npx claude-watch --port 8080
 
-# Terminal UI mode
+# Terminal UI mode (shows active sessions across all projects)
 npx claude-watch --tui
 
 # Monitor specific project only
 npx claude-watch --project ~/.claude/projects/-Users-me-my-project
 ```
 
-## Dashboard
+## Web Dashboard
 
-Two-panel web dashboard with a sidebar and drill-down detail view.
+Two-panel layout with a sidebar and drill-down detail view.
 
 ### Sidebar
 - **Time filter** — Today / 7 Days / 30 Days (active sessions always shown)
@@ -58,6 +66,19 @@ Two-panel web dashboard with a sidebar and drill-down detail view.
 
 **Skills** — grouped skill invocations with turn numbers and arguments
 
+**Flow** — graph visualization of agent spawns and skill invocations as a sequential flow diagram. Parallel agents (spawned in the same turn) appear side-by-side; sequential spawns flow top-to-bottom.
+
+## TUI Dashboard
+
+Terminal-based dashboard (`--tui`) with session table and detail panel.
+
+- Shows active sessions across all projects by default
+- **j/k** or arrows to navigate sessions
+- **a** to toggle between active-only and all sessions
+- **r** to refresh
+- **q** to quit
+- Detail panel shows token/cost breakdown, text-based tool call bars, agents, skills
+
 ## What It Monitors
 
 - **Token usage** — input, output, cache creation, cache read
@@ -67,6 +88,7 @@ Two-panel web dashboard with a sidebar and drill-down detail view.
 - **Compactions** — context window compressions
 - **Subagents** — spawns with descriptions, per-agent token/tool breakdown
 - **Skill invocations** — which skills were used and when
+- **Flow graph** — visual DAG of agent and skill spawns per session
 
 ## How It Works
 

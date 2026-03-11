@@ -11,12 +11,17 @@
     "build": "tsc && rm -rf dist/web/public && cp -r src/web/public dist/web/public",
     "dev": "tsx src/index.ts",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "prepublishOnly": "npm run build"
   },
   "files": ["dist", "README.md"],
-  "keywords": ["claude", "claude-code", "monitor", "dashboard", "tui"],
-  "author": "",
+  "keywords": ["claude", "claude-code", "monitor", "dashboard", "tui", "tokens", "cost"],
+  "author": "Oded Har-Tal",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/odedha-dr/claude-watch.git"
+  },
   "dependencies": {
     "blessed": "^0.1.81",
     "blessed-contrib": "^4.11.0",
