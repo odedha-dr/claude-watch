@@ -15,7 +15,7 @@ function toSummary(s: SessionData): SessionSummary {
     filePath: s.filePath,
     model: s.model,
     cwd: s.cwd,
-    tokensIn: s.tokens.input,
+    tokensIn: s.tokens.input + s.tokens.cacheCreation + s.tokens.cacheRead,
     tokensOut: s.tokens.output,
     cost: cost.total,
     isActive: s.isActive,

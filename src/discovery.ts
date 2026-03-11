@@ -66,8 +66,8 @@ export async function discoverSessions(projectPath: string): Promise<SessionData
           // No subagents directory
         }
 
-        const thirtyMinAgo = Date.now() - 30 * 60 * 1000;
-        session.isActive = latestMtime > thirtyMinAgo;
+        const sixtyMinAgo = Date.now() - 60 * 60 * 1000;
+        session.isActive = latestMtime > sixtyMinAgo;
         session.startedAt = fileStat.birthtimeMs ? new Date(fileStat.birthtimeMs) : null;
 
         sessions.push(session);
