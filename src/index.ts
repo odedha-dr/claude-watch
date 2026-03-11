@@ -56,8 +56,8 @@ program
   .option('--project <path>', 'Project directory to monitor')
   .option('--all', 'Monitor all projects (default for web mode)')
   .action(async (options) => {
-    // Default to --all unless a specific project is given
-    if (!options.project) {
+    // Default to --all for web mode only
+    if (!options.tui && !options.project) {
       options.all = true;
     }
     const projectPaths = await resolveProjectPaths(options);

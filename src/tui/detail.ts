@@ -58,7 +58,10 @@ export function createDetailPanel(screen: blessed.Widgets.Screen): DetailPanelWi
     const model = session.model || '?';
     const active = session.isActive ? '{green-fg}● active{/green-fg}' : '{gray-fg}○ idle{/gray-fg}';
     const folder = session.cwd ? session.cwd.replace(/^\/Users\/[^/]+/, '~') : '-';
-    lines.push(`{bold}{cyan-fg}${session.id.substring(0, 12)}{/cyan-fg}{/bold}  ${active}  {yellow-fg}${model}{/yellow-fg}`);
+    const started = session.startedAt
+      ? session.startedAt.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+      : '-';
+    lines.push(`{bold}{cyan-fg}${session.id.substring(0, 12)}{/cyan-fg}{/bold}  ${active}  {yellow-fg}${model}{/yellow-fg}  {gray-fg}${started}{/gray-fg}`);
     lines.push(`{gray-fg}${folder}{/gray-fg}`);
     lines.push('');
 

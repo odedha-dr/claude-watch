@@ -14,19 +14,41 @@ export function startApp(watcher: SessionWatcher): void {
   const sessionTable = createSessionTable(screen);
   const detailPanel = createDetailPanel(screen);
 
+  // Status bar at bottom
+  const statusBar = blessed.box({
+    bottom: 0,
+    left: 0,
+    width: '100%',
+    height: 1,
+    tags: true,
+    style: { bg: 'blue', fg: 'white' },
+  });
+  screen.append(statusBar);
+
   let sessions: SessionData[] = [];
   let selectedIndex = 0;
   let activeOnly = false;
+
+  function updateStatus() {
+    const filterLabel = activeOnly ? 'active only' : 'all';
+    const count = sessions.length;
+    const activeCount = sessions.filter(s => s.isActive).length;
+    statusBar.setContent(
+      `  {bold}${count}{/bold} sessions (${activeCount} active) [${filterLabel}]` +
+      `  |  {bold}j/k{/bold} navigate  {bold}a{/bold} toggle filter  {bold}r{/bold} refresh  {bold}q{/bold} quit`
+    );
+  }
 
   function refresh() {
     sessions = watcher.getSessions(activeOnly);
     if (selectedIndex >= sessions.length) {
       selectedIndex = Math.max(0, sessions.length - 1);
     }
-    const label = activeOnly ? ' Sessions (active only) [a=show all] ' : ' Sessions (all) [a=active only] ';
+    const label = activeOnly ? ' Sessions (active only) ' : ' Sessions (all) ';
     (sessionTable.table as any).setLabel(label);
     sessionTable.update(sessions, selectedIndex);
     detailPanel.update(sessions[selectedIndex] || null);
+    updateStatus();
     screen.render();
   }
 
@@ -35,7 +57,7 @@ export function startApp(watcher: SessionWatcher): void {
     refresh();
   });
 
-  // Key bindings
+  // Key bindings — on screen level to avoid table stealing keys
   screen.key(['q', 'C-c'], () => {
     watcher.stop().then(() => process.exit(0));
   });

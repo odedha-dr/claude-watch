@@ -23,6 +23,11 @@ function shortModel(model: string): string {
   return model.split('-').pop() || model;
 }
 
+function shortTime(d: Date | null): string {
+  if (!d) return '-';
+  return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+}
+
 export function createSessionTable(screen: blessed.Widgets.Screen): SessionTableWidget {
   const table = contrib.table({
     top: 0,
@@ -30,11 +35,11 @@ export function createSessionTable(screen: blessed.Widgets.Screen): SessionTable
     width: '100%',
     height: '40%',
     label: ' Sessions ',
-    keys: true,
-    vi: true,
-    interactive: true,
+    keys: false,
+    vi: false,
+    interactive: false,
     columnSpacing: 2,
-    columnWidth: [3, 8, 22, 10, 10, 8, 5],
+    columnWidth: [3, 7, 7, 22, 9, 9, 7, 5],
     border: { type: 'line' },
     style: {
       border: { fg: 'cyan' },
@@ -46,13 +51,14 @@ export function createSessionTable(screen: blessed.Widgets.Screen): SessionTable
   screen.append(table);
 
   const update = (sessions: SessionData[], selectedIndex: number) => {
-    const headers = ['', 'Model', 'Folder', 'Tokens In', 'Tokens Out', 'Cost', 'Comp'];
+    const headers = ['', 'Model', 'Time', 'Folder', 'Tok In', 'Tok Out', 'Cost', 'Comp'];
     const rows = sessions.map(s => {
       const tokIn = s.tokens.input + s.tokens.cacheCreation + s.tokens.cacheRead;
       const cost = calculateCost(s.model, s.tokens);
       return [
         s.isActive ? '●' : ' ',
         shortModel(s.model),
+        shortTime(s.startedAt),
         s.cwd ? s.cwd.split('/').slice(-2).join('/') : '-',
         formatNum(tokIn),
         formatNum(s.tokens.output),
