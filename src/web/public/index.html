@@ -869,6 +869,74 @@
       word-break: break-all;
     }
 
+    /* ---- Flow Tab ---- */
+    .flow-container {
+      overflow: auto;
+      background: var(--bg);
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      min-height: 400px;
+    }
+    .flow-node { cursor: pointer; transition: opacity 0.2s; }
+    .flow-node:hover { opacity: 0.85; }
+    .flow-node rect, .flow-node polygon { stroke-width: 2; fill: var(--bg-surface); }
+    .flow-node.session rect { stroke: var(--accent); }
+    .flow-node.agent rect { stroke: var(--orange); }
+    .flow-node.skill polygon { stroke: var(--green); }
+    .flow-edge { fill: none; stroke-width: 1.5; opacity: 0.6; }
+    .flow-edge.agent { stroke: var(--orange); }
+    .flow-edge.skill { stroke: var(--green); }
+    .flow-label { font-size: 12px; fill: var(--text); }
+    .flow-sublabel { font-size: 10px; fill: var(--text-muted); }
+    .flow-edge-label { font-size: 9px; fill: var(--text-muted); }
+    .flow-badge { font-size: 9px; padding: 1px 5px; border-radius: 3px; display: inline-block; }
+    .flow-node-content {
+      font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+      color: var(--text);
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      height: 100%;
+      box-sizing: border-box;
+    }
+    .flow-node-label {
+      font-size: 12px;
+      font-weight: 600;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .flow-node-meta {
+      font-size: 10px;
+      color: #8892a4;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .flow-node-stats {
+      font-size: 10px;
+      color: #8892a4;
+      margin-top: auto;
+    }
+    .flow-node-stats b { color: #e0e0e0; font-weight: 600; }
+    .flow-tooltip {
+      position: fixed;
+      background: #16213e;
+      border: 1px solid #2a3a5c;
+      border-radius: 6px;
+      padding: 10px 14px;
+      font-size: 11px;
+      color: #e0e0e0;
+      max-width: 300px;
+      pointer-events: none;
+      z-index: 1000;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+      line-height: 1.5;
+    }
+    .flow-tooltip b { color: #00d2ff; }
+
     @media (max-width: 900px) {
       .layout { grid-template-columns: 1fr; }
       .sidebar { max-height: 40vh; }
@@ -931,6 +999,7 @@
           <button class="tab-btn" data-tab="tools">Tools</button>
           <button class="tab-btn" data-tab="subagents">Subagents</button>
           <button class="tab-btn" data-tab="skills">Skills</button>
+          <button class="tab-btn" data-tab="flow">Flow</button>
         </div>
 
         <!-- Tab Content -->
@@ -940,6 +1009,7 @@
           <div class="tab-pane" id="tab-tools"></div>
           <div class="tab-pane" id="tab-subagents"></div>
           <div class="tab-pane" id="tab-skills"></div>
+          <div class="tab-pane" id="tab-flow"></div>
         </div>
       </div>
     </div>
@@ -1182,6 +1252,7 @@
         renderTools();
         renderSubagents();
         renderSkills();
+        renderFlow();
       } catch (err) {
         console.error('Failed to fetch session detail', err);
         document.getElementById('tab-overview').innerHTML =
@@ -1190,7 +1261,7 @@
     }
 
     function clearTabs() {
-      ['tab-overview','tab-turns','tab-tools','tab-subagents','tab-skills'].forEach(id => {
+      ['tab-overview','tab-turns','tab-tools','tab-subagents','tab-skills','tab-flow'].forEach(id => {
         document.getElementById(id).innerHTML = '<div style="padding:20px;color:var(--text-muted)">Loading...</div>';
       });
     }
@@ -1816,6 +1887,222 @@
           renderSkills();
         });
       });
+    }
+
+    // ---- Flow Tab ----
+    function renderFlow() {
+      const d = selectedDetail;
+      if (!d) return;
+
+      const fg = d.flowGraph;
+      if (!fg || !fg.children || fg.children.length === 0) {
+        document.getElementById('tab-flow').innerHTML =
+          '<div style="padding:20px;text-align:center;color:var(--text-muted)">No agents or skills in this session.</div>';
+        return;
+      }
+
+      // Layout constants
+      const nodeWidths = { session: 240, agent: 200, skill: 140 };
+      const nodeHeights = { session: 120, agent: 90, skill: 60 };
+      const hGap = 30;
+      const vGap = 120;
+      const padding = 40;
+
+      function layoutTree(root) {
+        const children = root.children || [];
+        const totalChildWidth = children.reduce((sum, c) => sum + nodeWidths[c.type] + hGap, -hGap);
+        const rootW = nodeWidths[root.type] || nodeWidths.session;
+        const rootH = nodeHeights[root.type] || nodeHeights.session;
+        const canvasWidth = Math.max(totalChildWidth, rootW);
+
+        const positions = [];
+        const rootX = padding + canvasWidth / 2;
+        const rootY = padding;
+        positions.push({ node: root, x: rootX, y: rootY, w: rootW, h: rootH });
+
+        if (children.length > 0) {
+          let childX = rootX - totalChildWidth / 2;
+          children.forEach(child => {
+            const w = nodeWidths[child.type] || 140;
+            const h = nodeHeights[child.type] || 60;
+            positions.push({
+              node: child,
+              x: childX + w / 2,
+              y: rootY + rootH + vGap,
+              w, h
+            });
+            childX += w + hGap;
+          });
+        }
+
+        return positions;
+      }
+
+      const positions = layoutTree(fg);
+
+      // Calculate SVG dimensions
+      let maxX = 0, maxY = 0;
+      positions.forEach(p => {
+        const right = p.x + p.w / 2 + padding;
+        const bottom = p.y + p.h + padding;
+        if (right > maxX) maxX = right;
+        if (bottom > maxY) maxY = bottom;
+      });
+
+      const svgW = Math.max(maxX, 400);
+      const svgH = Math.max(maxY, 300);
+
+      // Build SVG
+      let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${svgW}" height="${svgH}" viewBox="0 0 ${svgW} ${svgH}" style="display:block;">`;
+
+      // Draw edges first (behind nodes)
+      const rootPos = positions[0];
+      for (let i = 1; i < positions.length; i++) {
+        const cp = positions[i];
+        const x1 = rootPos.x;
+        const y1 = rootPos.y + rootPos.h;
+        const x2 = cp.x;
+        const y2 = cp.y;
+        const midY = (y1 + y2) / 2;
+        const edgeClass = cp.node.type === 'agent' ? 'agent' : 'skill';
+        svg += `<path class="flow-edge ${edgeClass}" d="M ${x1} ${y1} C ${x1} ${midY}, ${x2} ${midY}, ${x2} ${y2}" />`;
+        // Edge label
+        const labelX = (x1 + x2) / 2;
+        const labelY = midY - 4;
+        svg += `<text class="flow-edge-label" x="${labelX}" y="${labelY}" text-anchor="middle">Turn #${cp.node.turnNumber}</text>`;
+      }
+
+      // Draw nodes
+      positions.forEach((p, idx) => {
+        const n = p.node;
+        const left = p.x - p.w / 2;
+        const top = p.y;
+        const nodeClass = n.type || 'session';
+
+        svg += `<g class="flow-node ${nodeClass}" data-flow-idx="${idx}" data-flow-type="${n.type}" data-flow-id="${escHtml(n.id || '')}">`;
+
+        if (n.type === 'skill') {
+          // Diamond/hexagon shape for skill
+          const cx = p.x;
+          const cy = top + p.h / 2;
+          const hw = p.w / 2;
+          const hh = p.h / 2;
+          svg += `<polygon points="${cx},${cy - hh} ${cx + hw},${cy} ${cx},${cy + hh} ${cx - hw},${cy}" />`;
+        } else {
+          // Rounded rectangle for session and agent
+          svg += `<rect x="${left}" y="${top}" width="${p.w}" height="${p.h}" rx="8" ry="8" />`;
+        }
+
+        // foreignObject for rich content
+        svg += `<foreignObject x="${left}" y="${top}" width="${p.w}" height="${p.h}">`;
+        svg += `<div xmlns="http://www.w3.org/1999/xhtml" class="flow-node-content" style="display:flex;flex-direction:column;gap:3px;padding:${n.type === 'skill' ? '8px 16px' : '10px'};height:100%;box-sizing:border-box;overflow:hidden;">`;
+
+        if (n.type === 'session') {
+          const label = n.label || 'Session';
+          const model = n.model ? shortModel(n.model) : null;
+          const totalTok = n.tokens ? (n.tokens.input || 0) + (n.tokens.output || 0) + (n.tokens.cacheCreation || 0) + (n.tokens.cacheRead || 0) : 0;
+          svg += `<div class="flow-node-label" title="${escHtml(label)}">${escHtml(label)}</div>`;
+          svg += `<div class="flow-node-meta">`;
+          if (model) {
+            svg += `<span class="flow-badge" style="color:${modelColor(n.model)};border:1px solid ${modelColor(n.model)}">${model}</span>`;
+          }
+          svg += `</div>`;
+          svg += `<div class="flow-node-stats">`;
+          if (totalTok) svg += `Tokens: <b>${fmt(totalTok)}</b>`;
+          if (n.cost != null) svg += ` &middot; <b>${fmtCost(n.cost)}</b>`;
+          if (n.toolCount) svg += `<br/>Tools: <b>${fmt(n.toolCount)}</b>`;
+          if (n.durationMs) svg += ` &middot; ${fmtDuration(n.durationMs)}`;
+          svg += `</div>`;
+        } else if (n.type === 'agent') {
+          const label = n.label || 'Agent';
+          const model = n.model ? shortModel(n.model) : null;
+          svg += `<div class="flow-node-label" title="${escHtml(label)}">${escHtml(label)}</div>`;
+          svg += `<div class="flow-node-meta">`;
+          if (model) {
+            svg += `<span class="flow-badge" style="color:${modelColor(n.model)};border:1px solid ${modelColor(n.model)}">${model}</span>`;
+          }
+          svg += `Turn #${n.turnNumber}`;
+          svg += `</div>`;
+          svg += `<div class="flow-node-stats">`;
+          if (n.tokens) svg += `In: <b>${fmt(n.tokens.input || 0)}</b> &middot; Out: <b>${fmt(n.tokens.output || 0)}</b>`;
+          if (n.cost != null) svg += ` &middot; <b>${fmtCost(n.cost)}</b>`;
+          svg += `</div>`;
+        } else if (n.type === 'skill') {
+          svg += `<div class="flow-node-label" style="text-align:center;font-size:11px;" title="${escHtml(n.label || 'Skill')}">${escHtml(n.label || 'Skill')}</div>`;
+          svg += `<div class="flow-node-meta" style="justify-content:center;">Turn #${n.turnNumber}</div>`;
+        }
+
+        svg += `</div></foreignObject>`;
+        svg += `</g>`;
+      });
+
+      svg += '</svg>';
+
+      document.getElementById('tab-flow').innerHTML = `<div class="flow-container">${svg}</div>`;
+
+      // Tooltip element
+      let tooltip = document.createElement('div');
+      tooltip.className = 'flow-tooltip';
+      tooltip.style.display = 'none';
+      document.body.appendChild(tooltip);
+
+      // Attach interactivity
+      document.querySelectorAll('.flow-node').forEach(nodeEl => {
+        const idx = parseInt(nodeEl.dataset.flowIdx);
+        const p = positions[idx];
+        const n = p.node;
+
+        // Hover tooltip
+        nodeEl.addEventListener('mouseenter', (e) => {
+          let html = '';
+          html += `<div><b>${escHtml(n.label || n.type)}</b></div>`;
+          html += `<div>Type: ${n.type}</div>`;
+          if (n.model) html += `<div>Model: ${shortModel(n.model)}</div>`;
+          html += `<div>Turn: #${n.turnNumber}</div>`;
+          if (n.timestamp) html += `<div>Time: ${fmtDate(n.timestamp)}</div>`;
+          if (n.tokens) {
+            html += `<div>Input: ${fmt(n.tokens.input || 0)} &middot; Output: ${fmt(n.tokens.output || 0)}</div>`;
+            if (n.tokens.cacheCreation || n.tokens.cacheRead) {
+              html += `<div>Cache W: ${fmt(n.tokens.cacheCreation || 0)} &middot; Cache R: ${fmt(n.tokens.cacheRead || 0)}</div>`;
+            }
+          }
+          if (n.cost != null) html += `<div>Cost: <b>${fmtCost(n.cost)}</b></div>`;
+          if (n.toolCount) html += `<div>Tool Calls: ${fmt(n.toolCount)}</div>`;
+          if (n.durationMs) html += `<div>Duration: ${fmtDuration(n.durationMs)}</div>`;
+          if (n.children && n.children.length > 0) {
+            html += `<div>Children: ${n.children.length}</div>`;
+          }
+          tooltip.innerHTML = html;
+          tooltip.style.display = 'block';
+        });
+
+        nodeEl.addEventListener('mousemove', (e) => {
+          tooltip.style.left = (e.clientX + 12) + 'px';
+          tooltip.style.top = (e.clientY + 12) + 'px';
+        });
+
+        nodeEl.addEventListener('mouseleave', () => {
+          tooltip.style.display = 'none';
+        });
+
+        // Click navigation
+        nodeEl.addEventListener('click', () => {
+          if (n.type === 'agent') switchTab('subagents');
+          else if (n.type === 'skill') switchTab('skills');
+        });
+      });
+
+      // Clean up tooltip on tab switch
+      const origSwitchTab = switchTab;
+      // Note: tooltip cleanup on any re-render
+      const flowContainer = document.querySelector('.flow-container');
+      if (flowContainer) {
+        const observer = new MutationObserver(() => {
+          if (tooltip && tooltip.parentNode) {
+            tooltip.style.display = 'none';
+          }
+        });
+      }
     }
 
     // ---- SSE Connection ----

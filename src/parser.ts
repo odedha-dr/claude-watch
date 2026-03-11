@@ -1,7 +1,7 @@
 import { readFile } from 'fs/promises';
 import { basename } from 'path';
 import type {
-  RawEntry, RawContent, SessionData, SessionDetail,
+  RawEntry, RawContent, SessionData, SessionDetail, FlowNode,
   Turn, TurnContent, ToolCallEntry, SubagentSpawn, SkillInvocation, ToolCombination,
 } from './types.js';
 import { calculateCost } from './cost.js';
@@ -170,6 +170,8 @@ export async function parseSessionFileDetailed(filePath: string, project: string
   }
   const parsed: ParsedEntry[] = [];
   const toolResults = new Map<string, { stdout?: string; stderr?: string; interrupted?: boolean; isImage?: boolean }>();
+  // Map tool_use_id → agentId from queue-operation entries
+  const toolUseToAgent = new Map<string, string>();
 
   for (const line of lines) {
     if (!line.trim()) continue;
@@ -183,7 +185,6 @@ export async function parseSessionFileDetailed(filePath: string, project: string
 
     // Collect tool results from user entries
     if (raw.type === 'user' && raw.toolUseResult) {
-      // Find tool_use_id from message content
       const msg = raw.message;
       if (msg && Array.isArray(msg.content)) {
         for (const item of msg.content as RawContent[]) {
@@ -196,6 +197,15 @@ export async function parseSessionFileDetailed(filePath: string, project: string
             });
           }
         }
+      }
+    }
+
+    // Collect agent ID mappings from queue-operation entries
+    if (raw.type === 'queue-operation' && raw.content) {
+      const taskIdMatch = raw.content.match(/<task-id>(.*?)<\/task-id>/);
+      const toolUseIdMatch = raw.content.match(/<tool-use-id>(.*?)<\/tool-use-id>/);
+      if (taskIdMatch && toolUseIdMatch) {
+        toolUseToAgent.set(toolUseIdMatch[1], taskIdMatch[1]);
       }
     }
   }
@@ -276,11 +286,14 @@ export async function parseSessionFileDetailed(filePath: string, project: string
           });
 
           if (item.name === 'Agent') {
+            const toolUseId = item.id || '';
             subagentSpawns.push({
-              id: item.id || '',
+              id: toolUseId,
+              agentId: toolUseToAgent.get(toolUseId),
               description: (item.input?.description as string) || '',
               model: (item.input?.model as string) || undefined,
               turnNumber,
+              timestamp: timestamp || undefined,
             });
           }
           if (item.name === 'Skill' && item.input?.skill) {
@@ -349,6 +362,57 @@ export async function parseSessionFileDetailed(filePath: string, project: string
     .sort((a, b) => b.count - a.count);
 
   const cost = calculateCost(model, tokens);
+  const totalToolCount = Object.values(toolCountMap).reduce((a, b) => a + b, 0);
+
+  // Build flow graph
+  const firstTs = parsed.find(e => e.timestamp)?.timestamp || null;
+  const lastTs = [...parsed].reverse().find(e => e.timestamp)?.timestamp || null;
+  const sessionDuration = firstTs && lastTs
+    ? new Date(lastTs).getTime() - new Date(firstTs).getTime()
+    : null;
+
+  const flowGraph: FlowNode = {
+    id: sessionId,
+    type: 'session',
+    label: cwd ? cwd.replace(/^\/Users\/[^/]+/, '~') : sessionId,
+    model,
+    turnNumber: 0,
+    timestamp: firstTs || undefined,
+    tokens,
+    cost: cost.total,
+    toolCount: totalToolCount,
+    durationMs: sessionDuration ?? undefined,
+    children: [],
+  };
+
+  // Add agent spawns as children (sorted by turn number)
+  for (const spawn of subagentSpawns) {
+    const agentNode: FlowNode = {
+      id: spawn.agentId || spawn.id,
+      type: 'agent',
+      label: spawn.description || spawn.id,
+      model: spawn.model,
+      turnNumber: spawn.turnNumber,
+      timestamp: spawn.timestamp,
+      children: [],
+    };
+    flowGraph.children.push(agentNode);
+  }
+
+  // Add skill invocations as children
+  for (const skill of skills) {
+    const skillNode: FlowNode = {
+      id: `skill-${skill.name}-${skill.turnNumber}`,
+      type: 'skill',
+      label: skill.name,
+      turnNumber: skill.turnNumber,
+      children: [],
+    };
+    flowGraph.children.push(skillNode);
+  }
+
+  // Sort children by turn number
+  flowGraph.children.sort((a, b) => a.turnNumber - b.turnNumber);
 
   return {
     id: sessionId,
@@ -367,5 +431,6 @@ export async function parseSessionFileDetailed(filePath: string, project: string
     subagentSpawns,
     skills,
     subagents: [],
+    flowGraph,
   };
 }

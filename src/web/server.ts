@@ -73,11 +73,32 @@ export function createWebServer(watcher: SessionWatcher, port: number): void {
       detail.startedAt = session.startedAt;
       detail.isActive = session.isActive;
 
-      // Parse subagent files for detailed data
+      // Enrich subagent data and flow graph nodes
       for (const sub of session.subagents) {
         const subDetail = detail.subagents.find(s => s.id === sub.id);
         if (!subDetail) {
           detail.subagents.push(sub);
+        }
+
+        // Enrich matching flow graph agent node with token/tool data
+        const agentNode = detail.flowGraph.children.find(
+          n => n.type === 'agent' && (n.id === sub.id || n.id === sub.id.replace('agent-', ''))
+        );
+        if (agentNode) {
+          agentNode.tokens = {
+            input: sub.tokens.input,
+            output: sub.tokens.output,
+            cacheCreation: 0,
+            cacheRead: 0,
+          };
+          const subCost = calculateCost(agentNode.model || detail.model, {
+            input: sub.tokens.input,
+            output: sub.tokens.output,
+            cacheCreation: 0,
+            cacheRead: 0,
+          });
+          agentNode.cost = subCost.total;
+          agentNode.toolCount = Object.values(sub.toolCalls).reduce((a, b) => a + b, 0);
         }
       }
 

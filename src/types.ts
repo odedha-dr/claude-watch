@@ -15,6 +15,7 @@ export interface RawEntry {
   toolUseResult?: Record<string, unknown>;
   uuid?: string;
   slug?: string;
+  content?: string;         // for queue-operation entries
 }
 
 export interface RawMessage {
@@ -123,10 +124,12 @@ export interface ToolCallEntry {
 }
 
 export interface SubagentSpawn {
-  id: string;
+  id: string;              // tool_use id
+  agentId?: string;        // linked subagent file ID (from queue-operation)
   description: string;
   model?: string;
   turnNumber: number;
+  timestamp?: string;
 }
 
 export interface SkillInvocation {
@@ -138,6 +141,21 @@ export interface SkillInvocation {
 export interface ToolCombination {
   tools: string[];
   count: number;
+}
+
+// Flow graph for agent/skill visualization
+export interface FlowNode {
+  id: string;
+  type: 'session' | 'agent' | 'skill';
+  label: string;            // description or skill name
+  model?: string;
+  turnNumber: number;
+  timestamp?: string;
+  tokens?: { input: number; output: number; cacheCreation: number; cacheRead: number };
+  cost?: number;
+  toolCount?: number;
+  durationMs?: number;      // total time spent
+  children: FlowNode[];
 }
 
 export interface SessionDetail {
@@ -162,6 +180,7 @@ export interface SessionDetail {
   subagentSpawns: SubagentSpawn[];
   skills: SkillInvocation[];
   subagents: SubagentData[];
+  flowGraph: FlowNode;
 }
 
 export interface SessionSummary {
