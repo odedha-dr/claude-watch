@@ -37,10 +37,8 @@ jobs:
           npm version patch --no-git-tag-version
           VERSION=$(node -p "require('./package.json').version")
           echo "VERSION=$VERSION" >> $GITHUB_ENV
-      - name: Publish to npm (provenance)
+      - name: Publish to npm
         run: npm publish --access=public --provenance
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       - name: Push version bump
         run: |
           git add package.json package-lock.json
