@@ -1,6 +1,6 @@
 {
   "name": "@odedha/claude-watch",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Live monitoring dashboard for Claude Code sessions",
   "type": "module",
   "main": "dist/index.js",
@@ -14,8 +14,19 @@
     "test:watch": "vitest",
     "prepublishOnly": "npm run build"
   },
-  "files": ["dist", "README.md"],
-  "keywords": ["claude", "claude-code", "monitor", "dashboard", "tui", "tokens", "cost"],
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "keywords": [
+    "claude",
+    "claude-code",
+    "monitor",
+    "dashboard",
+    "tui",
+    "tokens",
+    "cost"
+  ],
   "author": "Oded Har-Tal",
   "license": "MIT",
   "repository": {
