@@ -108,10 +108,24 @@ export class SessionWatcher extends EventEmitter {
     }
   }
 
-  getSessions(activeOnly: boolean = false): SessionData[] {
+  /** Returns unique project names from all loaded sessions, sorted alphabetically. */
+  getProjects(): string[] {
+    const projects = new Set<string>();
+    for (const session of this.sessions.values()) {
+      if (session.project) {
+        projects.add(session.project);
+      }
+    }
+    return [...projects].sort();
+  }
+
+  getSessions(activeOnly: boolean = false, projectFilter?: string): SessionData[] {
     let sessions = Array.from(this.sessions.values());
     if (activeOnly) {
       sessions = sessions.filter(s => s.isActive);
+    }
+    if (projectFilter) {
+      sessions = sessions.filter(s => s.project === projectFilter);
     }
     return sessions.sort((a, b) => {
       if (!a.startedAt || !b.startedAt) return 0;

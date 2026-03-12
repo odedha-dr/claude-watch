@@ -13,6 +13,7 @@ function toSummary(s: SessionData): SessionSummary {
   return {
     id: s.id,
     filePath: s.filePath,
+    project: s.project,
     source: s.source,
     title: s.title,
     model: s.model,
@@ -28,7 +29,11 @@ function toSummary(s: SessionData): SessionSummary {
   };
 }
 
-export function createWebServer(watcher: SessionWatcher, port: number): void {
+export function createWebServer(
+  watcher: SessionWatcher,
+  port: number,
+  options?: { initialProjectFilter?: string }
+): void {
   const app = express();
 
   app.use(express.static(join(__dirname, 'public')));
@@ -59,6 +64,18 @@ export function createWebServer(watcher: SessionWatcher, port: number): void {
   app.get('/api/sessions', (_req, res) => {
     const sessions = watcher.getSessions();
     res.json(sessions.map(toSummary));
+  });
+
+  // REST endpoint — list of discovered project names
+  app.get('/api/projects', (_req, res) => {
+    res.json(watcher.getProjects());
+  });
+
+  // REST endpoint — server config (initial filters, etc.)
+  app.get('/api/config', (_req, res) => {
+    res.json({
+      initialProjectFilter: options?.initialProjectFilter || '',
+    });
   });
 
   // Detail endpoint — full session detail (heavy, on-demand)

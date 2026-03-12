@@ -85,6 +85,25 @@
       font-weight: 600;
     }
 
+    .project-filter {
+      margin-top: 8px;
+    }
+    .project-filter select {
+      width: 100%;
+      padding: 5px 8px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text);
+      font-family: inherit;
+      font-size: 11px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .project-filter select:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
     /* Summary widgets */
     .summary-widgets {
       display: grid;
@@ -956,6 +975,11 @@
           <button data-range="7d">7 Days</button>
           <button data-range="30d">30 Days</button>
         </div>
+        <div class="project-filter">
+          <select id="project-select">
+            <option value="">All Projects</option>
+          </select>
+        </div>
       </div>
       <div class="summary-widgets">
         <div class="widget">
@@ -1021,6 +1045,7 @@
     let selectedId = null;
     let selectedDetail = null;
     let timeRange = 'today';
+    let projectFilter = '';
     let activeTab = 'overview';
     let turnSortCol = 0;
     let turnSortAsc = true;
@@ -1093,7 +1118,10 @@
     }
 
     function getVisibleSessions() {
-      return allSessions.filter(s => s.isActive || isInRange(s.startedAt));
+      return allSessions.filter(s => {
+        if (projectFilter && s.project !== projectFilter) return false;
+        return s.isActive || isInRange(s.startedAt);
+      });
     }
 
     function escHtml(s) {
@@ -1108,6 +1136,38 @@
         timeRange = btn.dataset.range;
         renderSidebar();
       });
+    });
+
+    // ---- Project Filter ----
+    function updateProjectDropdown() {
+      const select = document.getElementById('project-select');
+      const projects = [...new Set(allSessions.map(s => s.project).filter(Boolean))].sort();
+      const currentValue = select.value;
+      // Clear existing options and rebuild
+      while (select.options.length > 0) select.remove(0);
+      const allOpt = document.createElement('option');
+      allOpt.value = '';
+      allOpt.textContent = 'All Projects';
+      select.appendChild(allOpt);
+      for (const p of projects) {
+        const opt = document.createElement('option');
+        opt.value = p;
+        opt.textContent = p;
+        select.appendChild(opt);
+      }
+      // Keep current selection if still valid, otherwise reset and re-render
+      if (projects.includes(currentValue)) {
+        select.value = currentValue;
+      } else if (currentValue) {
+        select.value = '';
+        projectFilter = '';
+        renderSidebar();
+      }
+    }
+
+    document.getElementById('project-select').addEventListener('change', (e) => {
+      projectFilter = e.target.value;
+      renderSidebar();
     });
 
     // ---- Tab switching ----
@@ -2183,6 +2243,7 @@
             const tb = b.startedAt ? new Date(b.startedAt).getTime() : 0;
             return tb - ta;
           });
+          updateProjectDropdown();
           renderSidebar();
           // Update header if selected session is in the list (may have changed active status)
           if (selectedId) {
@@ -2201,6 +2262,15 @@
     }
 
     connectSSE();
+
+    // Load initial config (e.g. CLI --filter-project)
+    fetch('/api/config').then(r => r.json()).then(cfg => {
+      if (cfg.initialProjectFilter) {
+        projectFilter = cfg.initialProjectFilter;
+        document.getElementById('project-select').value = projectFilter;
+        renderSidebar();
+      }
+    }).catch(() => {});
   </script>
 </body>
 </html>

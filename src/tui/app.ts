@@ -4,7 +4,10 @@ import { createDetailPanel } from './detail.js';
 import type { SessionWatcher } from '../watcher.js';
 import type { SessionData } from '../types.js';
 
-export function startApp(watcher: SessionWatcher): void {
+export function startApp(
+  watcher: SessionWatcher,
+  options?: { initialProjectFilter?: string }
+): void {
   const screen = blessed.screen({
     smartCSR: true,
     title: 'claude-watch',
@@ -28,14 +31,16 @@ export function startApp(watcher: SessionWatcher): void {
   let sessions: SessionData[] = [];
   let selectedIndex = 0;
   let activeOnly = true;
+  let projectFilter: string | undefined = options?.initialProjectFilter;
 
   function updateStatus() {
     const filterLabel = activeOnly ? 'active' : 'all';
+    const projectLabel = projectFilter || 'all projects';
     const count = sessions.length;
     const activeCount = sessions.filter(s => s.isActive).length;
     statusBar.setContent(
-      ` ${count} sessions (${activeCount} active) [${filterLabel}]` +
-      `  |  j/k:navigate  a:toggle filter  r:refresh  q:quit`
+      ` ${count} sessions (${activeCount} active) [${filterLabel}] [${projectLabel}]` +
+      `  |  j/k:navigate  a:toggle filter  p:project  r:refresh  q:quit`
     );
   }
 
@@ -47,7 +52,7 @@ export function startApp(watcher: SessionWatcher): void {
   }
 
   function refresh() {
-    sessions = watcher.getSessions(activeOnly);
+    sessions = watcher.getSessions(activeOnly, projectFilter);
     if (selectedIndex >= sessions.length) {
       selectedIndex = Math.max(0, sessions.length - 1);
     }
@@ -86,6 +91,24 @@ export function startApp(watcher: SessionWatcher): void {
 
   screen.key(['a'], () => {
     activeOnly = !activeOnly;
+    selectedIndex = 0;
+    refresh();
+  });
+
+  screen.key(['p'], () => {
+    const projects = watcher.getProjects();
+    if (projects.length === 0) return;
+
+    if (!projectFilter) {
+      projectFilter = projects[0];
+    } else {
+      const idx = projects.indexOf(projectFilter);
+      if (idx === -1 || idx === projects.length - 1) {
+        projectFilter = undefined;
+      } else {
+        projectFilter = projects[idx + 1];
+      }
+    }
     selectedIndex = 0;
     refresh();
   });
