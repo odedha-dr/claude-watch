@@ -13,6 +13,8 @@ function toSummary(s: SessionData): SessionSummary {
   return {
     id: s.id,
     filePath: s.filePath,
+    source: s.source,
+    title: s.title,
     model: s.model,
     cwd: s.cwd,
     tokensIn: s.tokens.input + s.tokens.cacheCreation + s.tokens.cacheRead,

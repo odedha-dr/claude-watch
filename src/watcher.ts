@@ -1,17 +1,19 @@
 import { watch } from 'chokidar';
 import { EventEmitter } from 'events';
-import { discoverSessions } from './discovery.js';
+import { discoverSessions, discoverCoworkSessions, getCoworkHome } from './discovery.js';
 import type { SessionData, WatcherEvent } from './types.js';
 
 export class SessionWatcher extends EventEmitter {
   private projectPaths: string[];
+  private includeCowork: boolean;
   private sessions: Map<string, SessionData> = new Map();
   private pollInterval: ReturnType<typeof setInterval> | null = null;
   private watchers: ReturnType<typeof watch>[] = [];
 
-  constructor(projectPaths: string | string[]) {
+  constructor(projectPaths: string | string[], includeCowork: boolean = true) {
     super();
     this.projectPaths = Array.isArray(projectPaths) ? projectPaths : [projectPaths];
+    this.includeCowork = includeCowork;
   }
 
   async start(): Promise<void> {
@@ -40,28 +42,68 @@ export class SessionWatcher extends EventEmitter {
       this.watchers.push(w);
     }
 
+    // Watch CoWork directory too
+    if (this.includeCowork) {
+      try {
+        const coworkHome = getCoworkHome();
+        const w = watch(coworkHome, {
+          ignoreInitial: true,
+          depth: 4, // org/workspace/session/audit.jsonl
+        });
+
+        w.on('change', (path: string) => {
+          if (path.endsWith('.jsonl') || path.endsWith('.json')) {
+            this.refresh();
+          }
+        });
+
+        w.on('add', (path: string) => {
+          if (path.endsWith('.jsonl') || path.endsWith('.json')) {
+            this.refresh();
+          }
+        });
+
+        this.watchers.push(w);
+      } catch {
+        // No CoWork directory
+      }
+    }
+
     // Polling fallback every 5 seconds
     this.pollInterval = setInterval(() => this.refresh(), 5000);
+  }
+
+  private updateSessions(sessions: SessionData[]): void {
+    for (const session of sessions) {
+      const existing = this.sessions.get(session.id);
+      const isNew = !existing;
+      this.sessions.set(session.id, session);
+
+      const event: WatcherEvent = {
+        type: isNew ? 'session-added' : 'session-updated',
+        sessionId: session.id,
+        data: session,
+      };
+      this.emit('change', event);
+    }
   }
 
   async refresh(): Promise<void> {
     for (const projectPath of this.projectPaths) {
       try {
         const sessions = await discoverSessions(projectPath);
-        for (const session of sessions) {
-          const existing = this.sessions.get(session.id);
-          const isNew = !existing;
-          this.sessions.set(session.id, session);
-
-          const event: WatcherEvent = {
-            type: isNew ? 'session-added' : 'session-updated',
-            sessionId: session.id,
-            data: session,
-          };
-          this.emit('change', event);
-        }
+        this.updateSessions(sessions);
       } catch {
         // Skip projects that fail to read
+      }
+    }
+
+    if (this.includeCowork) {
+      try {
+        const coworkSessions = await discoverCoworkSessions();
+        this.updateSessions(coworkSessions);
+      } catch {
+        // Skip CoWork if unavailable
       }
     }
   }

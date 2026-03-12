@@ -1161,13 +1161,18 @@
         const mc = modelColor(s.model);
         const sm = shortModel(s.model);
 
+        const srcBadge = s.source === 'cowork'
+          ? '<span class="tree-model" style="color:#c084fc;border:1px solid #c084fc">CW</span>'
+          : '';
+        const label = s.title || shortPath(s.cwd);
+
         html += `<div class="tree-item${isSelected ? ' selected' : ''}" data-id="${escHtml(s.id)}">
           <div class="tree-expand">${arrow}</div>
           <div class="tree-dot ${s.isActive ? 'active' : 'inactive'}"></div>
           <div class="tree-info">
-            <div class="tree-id">${escHtml(s.id.substring(0, 8))}</div>
+            <div class="tree-id">${escHtml(label)}</div>
             <div class="tree-meta">
-              <span class="tree-folder" title="${escHtml(s.cwd || '')}">${escHtml(shortPath(s.cwd))}</span>
+              ${srcBadge}
               <span class="tree-model" style="color:${mc};border:1px solid ${mc}">${sm}</span>
               <span class="tree-cost">${fmtCost(s.cost)}</span>
             </div>

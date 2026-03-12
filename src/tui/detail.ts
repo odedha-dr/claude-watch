@@ -57,11 +57,15 @@ export function createDetailPanel(screen: blessed.Widgets.Screen): DetailPanelWi
     // Header
     const model = session.model || '?';
     const active = session.isActive ? '{green-fg}● active{/green-fg}' : '{gray-fg}○ idle{/gray-fg}';
+    const sourceLabel = session.source === 'cowork' ? '{magenta-fg}CoWork{/magenta-fg}' : '{cyan-fg}Code{/cyan-fg}';
     const folder = session.cwd ? session.cwd.replace(/^\/Users\/[^/]+/, '~') : '-';
     const started = session.startedAt
       ? session.startedAt.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
       : '-';
-    lines.push(`{bold}{cyan-fg}${session.id.substring(0, 12)}{/cyan-fg}{/bold}  ${active}  {yellow-fg}${model}{/yellow-fg}  {gray-fg}${started}{/gray-fg}`);
+    lines.push(`{bold}${sourceLabel}{/bold}  ${active}  {yellow-fg}${model}{/yellow-fg}  {gray-fg}${started}{/gray-fg}`);
+    if (session.title) {
+      lines.push(`{white-fg}${session.title}{/white-fg}`);
+    }
     lines.push(`{gray-fg}${folder}{/gray-fg}`);
     lines.push('');
 

@@ -1,15 +1,17 @@
-// Raw JSONL entry from Claude Code session logs
+// Raw JSONL entry from Claude Code / CoWork session logs
 export interface RawEntry {
   parentUuid?: string | null;
   isSidechain?: boolean;
   userType?: string;
   cwd?: string;
   sessionId: string;
+  session_id?: string;       // CoWork uses snake_case
   version?: string;
   gitBranch?: string;
   type?: string;
   subtype?: string;
   timestamp?: string;
+  _audit_timestamp?: string; // CoWork timestamp field
   message?: RawMessage;
   data?: Record<string, unknown>;
   toolUseResult?: Record<string, unknown>;
@@ -44,11 +46,15 @@ export interface TokenUsage {
   cache_read_input_tokens?: number;
 }
 
+export type SessionSource = 'claude-code' | 'cowork';
+
 // Processed session data
 export interface SessionData {
   id: string;
   filePath: string;
   project: string;
+  source: SessionSource;
+  title?: string;
   model: string;
   cwd: string;
   startedAt: Date | null;
@@ -186,6 +192,8 @@ export interface SessionDetail {
 export interface SessionSummary {
   id: string;
   filePath: string;
+  source: SessionSource;
+  title?: string;
   model: string;
   cwd: string;
   tokensIn: number;

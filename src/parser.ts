@@ -1,9 +1,21 @@
 import { readFile } from 'fs/promises';
 import { basename } from 'path';
 import type {
-  RawEntry, RawContent, SessionData, SessionDetail, FlowNode,
+  RawEntry, RawContent, SessionData, SessionDetail, SessionSource, FlowNode,
   Turn, TurnContent, ToolCallEntry, SubagentSpawn, SkillInvocation, ToolCombination,
 } from './types.js';
+
+/** Normalize CoWork field names to match Claude Code conventions */
+function normalizeEntry(raw: RawEntry): void {
+  // CoWork uses session_id instead of sessionId
+  if (!raw.sessionId && raw.session_id) {
+    raw.sessionId = raw.session_id;
+  }
+  // CoWork uses _audit_timestamp instead of timestamp
+  if (!raw.timestamp && raw._audit_timestamp) {
+    raw.timestamp = raw._audit_timestamp;
+  }
+}
 import { calculateCost } from './cost.js';
 
 export interface EntryMetrics {
@@ -65,7 +77,7 @@ export function parseEntry(raw: RawEntry): EntryMetrics {
   return metrics;
 }
 
-export async function parseSessionFile(filePath: string, project: string): Promise<SessionData> {
+export async function parseSessionFile(filePath: string, project: string, source: SessionSource = 'claude-code'): Promise<SessionData> {
   const content = await readFile(filePath, 'utf-8');
   const lines = content.trim().split('\n');
 
@@ -73,6 +85,7 @@ export async function parseSessionFile(filePath: string, project: string): Promi
     id: basename(filePath, '.jsonl'),
     filePath,
     project,
+    source,
     model: '',
     cwd: '',
     startedAt: null,
@@ -94,6 +107,8 @@ export async function parseSessionFile(filePath: string, project: string): Promi
     } catch {
       continue;
     }
+
+    normalizeEntry(raw);
 
     // Use sessionId from first entry that has one
     if (raw.sessionId && session.id === basename(filePath, '.jsonl')) {
@@ -181,6 +196,7 @@ export async function parseSessionFileDetailed(filePath: string, project: string
     } catch {
       continue;
     }
+    normalizeEntry(raw);
     parsed.push({ raw, timestamp: raw.timestamp || null });
 
     // Collect tool results from user entries

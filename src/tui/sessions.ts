@@ -39,7 +39,7 @@ export function createSessionTable(screen: blessed.Widgets.Screen): SessionTable
     vi: false,
     interactive: true,
     columnSpacing: 2,
-    columnWidth: [3, 7, 7, 22, 9, 9, 7, 5],
+    columnWidth: [3, 6, 7, 7, 22, 9, 9, 7],
     border: { type: 'line' },
     style: {
       border: { fg: 'cyan' },
@@ -51,19 +51,19 @@ export function createSessionTable(screen: blessed.Widgets.Screen): SessionTable
   screen.append(table);
 
   const update = (sessions: SessionData[], selectedIndex: number) => {
-    const headers = ['', 'Model', 'Time', 'Folder', 'Tok In', 'Tok Out', 'Cost', 'Comp'];
+    const headers = ['', 'Src', 'Model', 'Time', 'Folder', 'Tok In', 'Tok Out', 'Cost'];
     const rows = sessions.map(s => {
       const tokIn = s.tokens.input + s.tokens.cacheCreation + s.tokens.cacheRead;
       const cost = calculateCost(s.model, s.tokens);
       return [
         s.isActive ? '●' : ' ',
+        s.source === 'cowork' ? 'CW' : 'CC',
         shortModel(s.model),
         shortTime(s.startedAt),
-        s.cwd ? s.cwd.split('/').slice(-2).join('/') : '-',
+        s.title || (s.cwd ? s.cwd.split('/').slice(-2).join('/') : '-'),
         formatNum(tokIn),
         formatNum(s.tokens.output),
         '$' + cost.total.toFixed(2),
-        String(s.compactions),
       ];
     });
 
