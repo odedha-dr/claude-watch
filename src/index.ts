@@ -55,6 +55,7 @@ program
   .option('--port <number>', 'Web server port', '3000')
   .option('--project <path>', 'Project directory to monitor')
   .option('--all', 'Monitor all projects (default for web mode)')
+  .option('--filter-project <name>', 'Filter sessions to a specific project name')
   .action(async (options) => {
     // Default to --all unless a specific project is given
     if (!options.project) {
@@ -72,10 +73,10 @@ program
     await watcher.start();
 
     if (options.tui) {
-      startApp(watcher);
+      startApp(watcher, { initialProjectFilter: options.filterProject });
     } else {
       const port = parseInt(options.port, 10);
-      createWebServer(watcher, port);
+      createWebServer(watcher, port, { initialProjectFilter: options.filterProject });
     }
   });
 

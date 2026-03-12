@@ -192,6 +192,7 @@ export interface SessionDetail {
 export interface SessionSummary {
   id: string;
   filePath: string;
+  project: string;
   source: SessionSource;
   title?: string;
   model: string;

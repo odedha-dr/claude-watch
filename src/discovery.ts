@@ -1,8 +1,58 @@
 import { readdir, stat, readFile } from 'fs/promises';
+import { existsSync } from 'fs';
 import { join, basename } from 'path';
 import { homedir } from 'os';
 import type { ProjectInfo, SessionData } from './types.js';
 import { parseSessionFile } from './parser.js';
+
+/**
+ * Decode a Claude Code project directory name back to the real filesystem path.
+ *
+ * Encoding rules used by Claude Code:
+ *   /           → -
+ *   /.<hidden>  → --<hidden>   (e.g. /.claude → --claude)
+ *
+ * Since the encoding is lossy (a literal dash in a dir name looks the same as a
+ * path separator), we resolve ambiguity greedily: at each step, try the shortest
+ * candidate segment that exists as a real directory on disk.
+ */
+function decodeDirName(encoded: string): string {
+  // Restore hidden-dir dots:  "--foo" in the middle means "/.<foo>"
+  // First, replace leading "-" with "/" to get the absolute prefix,
+  // then replace remaining "--" with "/-." (hidden dir marker).
+  const normalized = encoded
+    .replace(/^-/, '/')
+    .replace(/--/g, '/.');
+
+  const segments = normalized.substring(1).split('-'); // drop leading /
+  if (segments.length === 0) return '/';
+
+  let resolved = '/';
+  let buffer = segments[0];
+
+  for (let i = 1; i < segments.length; i++) {
+    const testDir = join(resolved, buffer);
+    if (existsSync(testDir)) {
+      // The buffer matches a real directory → treat the dash as a path separator
+      resolved = testDir;
+      buffer = segments[i];
+    } else {
+      // Not a directory → the dash was literal, keep accumulating
+      buffer += '-' + segments[i];
+    }
+  }
+
+  return join(resolved, buffer);
+}
+
+/** Turn a decoded absolute path into a display-friendly name (~/…) */
+function toDisplayName(absolutePath: string): string {
+  const home = homedir();
+  if (absolutePath.startsWith(home)) {
+    return '~' + absolutePath.substring(home.length);
+  }
+  return absolutePath;
+}
 
 export function getClaudeHome(): string {
   return join(homedir(), '.claude');
@@ -24,7 +74,7 @@ export async function discoverProjects(claudeHome?: string): Promise<ProjectInfo
       const projPath = join(projectsDir, entry.name);
       const jsonlFiles = (await readdir(projPath)).filter(f => f.endsWith('.jsonl'));
       projects.push({
-        name: entry.name.replace(/-/g, '/').replace(/^\//, ''),
+        name: toDisplayName(decodeDirName(entry.name)),
         path: projPath,
         sessionCount: jsonlFiles.length,
       });
@@ -39,7 +89,7 @@ export async function discoverProjects(claudeHome?: string): Promise<ProjectInfo
 export async function discoverSessions(projectPath: string): Promise<SessionData[]> {
   const entries = await readdir(projectPath, { withFileTypes: true });
   const sessions: SessionData[] = [];
-  const projectName = basename(projectPath);
+  const projectName = toDisplayName(decodeDirName(basename(projectPath)));
 
   for (const entry of entries) {
     if (entry.isFile() && entry.name.endsWith('.jsonl')) {
