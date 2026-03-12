@@ -1,5 +1,5 @@
 {
-  "name": "claude-watch",
+  "name": "@odedha/claude-watch",
   "version": "0.1.0",
   "description": "Live monitoring dashboard for Claude Code sessions",
   "type": "module",

@@ -5,7 +5,7 @@ Live monitoring dashboard for Claude Code sessions. Reads session JSONL logs and
 ## Install & Run
 
 ```bash
-npx claude-watch
+npx @odedha/claude-watch
 ```
 
 Opens a web dashboard at http://localhost:3000 monitoring all your Claude Code sessions.
@@ -13,7 +13,7 @@ Opens a web dashboard at http://localhost:3000 monitoring all your Claude Code s
 ### Global Install
 
 ```bash
-npm install -g claude-watch
+npm install -g @odedha/claude-watch
 claude-watch
 ```
 
