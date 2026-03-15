@@ -46,7 +46,7 @@ export interface TokenUsage {
   cache_read_input_tokens?: number;
 }
 
-export type SessionSource = 'claude-code' | 'cowork';
+export type SessionSource = 'claude-code' | 'cowork' | 'custom';
 
 // Processed session data
 export interface SessionData {
