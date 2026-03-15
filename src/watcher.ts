@@ -1,19 +1,21 @@
 import { watch } from 'chokidar';
 import { EventEmitter } from 'events';
-import { discoverSessions, discoverCoworkSessions, getCoworkHome } from './discovery.js';
+import { discoverSessions, discoverCoworkSessions, discoverCustomSessions, getCoworkHome } from './discovery.js';
 import type { SessionData, WatcherEvent } from './types.js';
 
 export class SessionWatcher extends EventEmitter {
   private projectPaths: string[];
   private includeCowork: boolean;
+  private customDirs: string[];
   private sessions: Map<string, SessionData> = new Map();
   private pollInterval: ReturnType<typeof setInterval> | null = null;
   private watchers: ReturnType<typeof watch>[] = [];
 
-  constructor(projectPaths: string | string[], includeCowork: boolean = true) {
+  constructor(projectPaths: string | string[], includeCowork: boolean = true, customDirs: string[] = []) {
     super();
     this.projectPaths = Array.isArray(projectPaths) ? projectPaths : [projectPaths];
     this.includeCowork = includeCowork;
+    this.customDirs = customDirs;
   }
 
   async start(): Promise<void> {
@@ -69,6 +71,32 @@ export class SessionWatcher extends EventEmitter {
       }
     }
 
+    // Watch custom directories
+    for (const customDir of this.customDirs) {
+      try {
+        const w = watch(customDir, {
+          ignoreInitial: true,
+          depth: 1,
+        });
+
+        w.on('change', (path: string) => {
+          if (path.endsWith('.jsonl')) {
+            this.refresh();
+          }
+        });
+
+        w.on('add', (path: string) => {
+          if (path.endsWith('.jsonl')) {
+            this.refresh();
+          }
+        });
+
+        this.watchers.push(w);
+      } catch {
+        // Skip directories that don't exist
+      }
+    }
+
     // Polling fallback every 5 seconds
     this.pollInterval = setInterval(() => this.refresh(), 5000);
   }
@@ -104,6 +132,15 @@ export class SessionWatcher extends EventEmitter {
         this.updateSessions(coworkSessions);
       } catch {
         // Skip CoWork if unavailable
+      }
+    }
+
+    if (this.customDirs.length > 0) {
+      try {
+        const customSessions = await discoverCustomSessions(this.customDirs);
+        this.updateSessions(customSessions);
+      } catch {
+        // Skip custom dirs if unavailable
       }
     }
   }
