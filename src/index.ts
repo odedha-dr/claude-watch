@@ -56,13 +56,15 @@ program
   .option('--project <path>', 'Project directory to monitor')
   .option('--all', 'Monitor all projects (default for web mode)')
   .option('--filter-project <name>', 'Filter sessions to a specific project name')
+  .option('--watch-dir <path...>', 'Additional directories to watch for JSONL session files')
   .action(async (options) => {
     // Default to --all unless a specific project is given
     if (!options.project) {
       options.all = true;
     }
     const projectPaths = await resolveProjectPaths(options);
-    const watcher = new SessionWatcher(projectPaths);
+    const customDirs = (options.watchDir || []).map((d: string) => resolve(d));
+    const watcher = new SessionWatcher(projectPaths, true, customDirs);
 
     // Graceful shutdown
     process.on('SIGINT', async () => {
