@@ -1,6 +1,6 @@
 import { readdir, stat, readFile } from 'fs/promises';
 import { existsSync } from 'fs';
-import { join, basename } from 'path';
+import { join, basename, resolve } from 'path';
 import { homedir } from 'os';
 import type { ProjectInfo, SessionData } from './types.js';
 import { parseSessionFile } from './parser.js';
@@ -241,6 +241,51 @@ export async function discoverCoworkSessions(): Promise<SessionData[]> {
         } catch {
           // Skip unparseable sessions
         }
+      }
+    }
+  }
+
+  sessions.sort((a, b) => {
+    if (!a.startedAt || !b.startedAt) return 0;
+    return b.startedAt.getTime() - a.startedAt.getTime();
+  });
+
+  return sessions;
+}
+
+/**
+ * Discover sessions from custom directories.
+ * Each directory is scanned for .jsonl files (flat, no subagent support).
+ */
+export async function discoverCustomSessions(dirs: string[]): Promise<SessionData[]> {
+  const sessions: SessionData[] = [];
+
+  for (const dir of dirs) {
+    let entries: string[];
+    try {
+      const dirEntries = await readdir(dir, { withFileTypes: true });
+      entries = dirEntries.filter(e => e.isFile() && e.name.endsWith('.jsonl')).map(e => e.name);
+    } catch {
+      continue; // Skip directories that don't exist or can't be read
+    }
+
+    const dirName = basename(dir);
+
+    for (const fileName of entries) {
+      const filePath = join(dir, fileName);
+      try {
+        const session = await parseSessionFile(filePath, dirName, 'custom');
+        const fileStat = await stat(filePath);
+
+        const sixtyMinAgo = Date.now() - 60 * 60 * 1000;
+        session.isActive = fileStat.mtimeMs > sixtyMinAgo;
+        if (!session.startedAt && fileStat.birthtimeMs) {
+          session.startedAt = new Date(fileStat.birthtimeMs);
+        }
+
+        sessions.push(session);
+      } catch {
+        // Skip unparseable files
       }
     }
   }
