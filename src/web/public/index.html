@@ -2245,10 +2245,26 @@
           });
           updateProjectDropdown();
           renderSidebar();
-          // Update header if selected session is in the list (may have changed active status)
+          // Re-fetch and re-render detail for selected session
           if (selectedId) {
             const s = allSessions.find(s => s.id === selectedId);
-            if (s) renderHeader();
+            if (s) {
+              renderHeader();
+              fetch('/api/sessions/' + encodeURIComponent(selectedId))
+                .then(r => r.ok ? r.json() : null)
+                .then(detail => {
+                  if (detail && selectedId === detail.id) {
+                    selectedDetail = detail;
+                    if (activeTab === 'overview') renderOverview();
+                    else if (activeTab === 'turns') renderTurns();
+                    else if (activeTab === 'tools') renderTools();
+                    else if (activeTab === 'subagents') renderSubagents();
+                    else if (activeTab === 'skills') renderSkills();
+                    else if (activeTab === 'flow') renderFlow();
+                  }
+                })
+                .catch(() => {});
+            }
           }
         } catch (e) {
           console.error('Failed to parse SSE data', e);
