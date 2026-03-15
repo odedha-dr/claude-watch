@@ -1422,6 +1422,7 @@
     let expandedThinking = new Set();
     let expandedToolInputs = new Set();
     let expandedOutputs = new Set();
+    let turnsSearchQuery = '';
 
     function fmtTime(iso) {
       if (!iso) return '';
@@ -1451,15 +1452,43 @@
       const d = selectedDetail;
       if (!d) return;
 
-      const turns = d.turns || [];
-      if (turns.length === 0) {
+      const allTurns = d.turns || [];
+      if (allTurns.length === 0) {
         document.getElementById('tab-turns').innerHTML =
           '<div style="padding:20px;text-align:center;color:var(--text-muted)">No turns in this session.</div>';
         return;
       }
 
-      let html = '<div class="turn-list">';
-      turns.forEach((t, idx) => {
+      // Filter by search query
+      const query = turnsSearchQuery.toLowerCase();
+      const turns = query
+        ? allTurns.filter(t => {
+            // Search in text content, tool names, tool inputs, and results
+            for (const c of (t.content || [])) {
+              if (c.text && c.text.toLowerCase().includes(query)) return true;
+              if (c.toolName && c.toolName.toLowerCase().includes(query)) return true;
+              if (c.toolInput && JSON.stringify(c.toolInput).toLowerCase().includes(query)) return true;
+              if (c.toolResult) {
+                if (c.toolResult.stdout && c.toolResult.stdout.toLowerCase().includes(query)) return true;
+                if (c.toolResult.stderr && c.toolResult.stderr.toLowerCase().includes(query)) return true;
+              }
+            }
+            if (t.toolCalls && t.toolCalls.some(tc => tc.toLowerCase().includes(query))) return true;
+            return false;
+          })
+        : allTurns;
+
+      // Reverse: newest first
+      const reversed = [...turns].reverse();
+
+      let html = '';
+      html += `<div class="turns-search" style="padding:8px 12px;border-bottom:1px solid var(--border-color);">`;
+      html += `<input type="text" id="turns-search-input" placeholder="Search turns..." value="${escHtml(turnsSearchQuery)}" style="width:100%;padding:6px 10px;border:1px solid var(--border-color);border-radius:6px;background:var(--bg-secondary);color:var(--text-primary);font-size:13px;">`;
+      if (query) html += `<div style="font-size:11px;color:var(--text-muted);margin-top:4px;">${turns.length} of ${allTurns.length} turns match</div>`;
+      html += `</div>`;
+
+      html += '<div class="turn-list">';
+      reversed.forEach((t, idx) => {
         const isExpanded = expandedTurns.has(t.number);
         const roleClass = t.role === 'user' ? 'role-user' : 'role-assistant';
         const durClass = durationClass(t.durationMs);
@@ -1634,6 +1663,18 @@
           renderTurns();
         });
       });
+
+      // Search input
+      const searchInput = document.getElementById('turns-search-input');
+      if (searchInput) {
+        searchInput.addEventListener('input', (e) => {
+          turnsSearchQuery = e.target.value;
+          renderTurns();
+          // Re-focus and restore cursor position
+          const el = document.getElementById('turns-search-input');
+          if (el) { el.focus(); el.selectionStart = el.selectionEnd = el.value.length; }
+        });
+      }
     }
 
     // ---- Tools Tab ----
