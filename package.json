@@ -29,6 +29,9 @@
   ],
   "author": "Oded Har-Tal",
   "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/odedha-dr/claude-watch.git"
