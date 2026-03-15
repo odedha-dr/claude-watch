@@ -38,7 +38,8 @@ jobs:
           VERSION=$(node -p "require('./package.json').version")
           echo "VERSION=$VERSION" >> $GITHUB_ENV
       - name: Publish to npm
-        run: npm publish --access=public --provenance
+        run: npm publish  --provenance
+       
       - name: Push version bump
         run: |
           git add package.json package-lock.json

@@ -24,6 +24,7 @@ claude-watch
 --project <path>  Monitor a specific ~/.claude/projects/ directory
 --all             Monitor all projects (default for web mode)
 --tui             Launch terminal dashboard instead of web
+--watch-dir <path...>  Additional directories to watch for JSONL session files
 ```
 
 ### Examples
@@ -40,6 +41,12 @@ npx claude-watch --tui
 
 # Monitor specific project only
 npx claude-watch --project ~/.claude/projects/-Users-me-my-project
+
+# Watch additional directories containing JSONL session files
+npx claude-watch --watch-dir /path/to/custom/sessions
+
+# Watch multiple extra directories
+npx claude-watch --watch-dir /path/one --watch-dir /path/two
 ```
 
 ## Web Dashboard
