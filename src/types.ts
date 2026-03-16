@@ -91,13 +91,30 @@ export interface WatcherEvent {
   data: SessionData;
 }
 
-// Turn-level tracking
-export interface Turn {
-  number: number;
+// A single step within a turn (one JSONL entry)
+export interface TurnStep {
   role: 'user' | 'assistant' | 'tool-result';
   timestamp: string | null;
-  durationMs: number | null;       // time from this entry to next entry (latency)
+  durationMs: number | null;
   toolCalls: string[];
+  tokens: {
+    input: number;
+    output: number;
+    cacheCreation: number;
+    cacheRead: number;
+    totalIn: number;
+  };
+  content: TurnContent[];
+  stopReason?: string;
+}
+
+// Turn-level tracking (groups all steps between role changes)
+export interface Turn {
+  number: number;
+  role: 'user' | 'assistant';
+  timestamp: string | null;        // first step timestamp
+  durationMs: number | null;       // total duration across all steps
+  toolCalls: string[];             // all tool calls across steps
   tokens: {
     input: number;
     output: number;
@@ -105,7 +122,8 @@ export interface Turn {
     cacheRead: number;
     totalIn: number;               // input + cacheCreation + cacheRead
   };
-  // Full content for drill-down
+  steps: TurnStep[];
+  // Full content for drill-down (flattened from all steps, kept for backward compat)
   content: TurnContent[];
   stopReason?: string;
 }

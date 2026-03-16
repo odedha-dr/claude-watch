@@ -689,6 +689,45 @@
     .turn-row.role-user { border-left: 3px solid #4a9eff; }
     .turn-row.role-assistant { border-left: 3px solid var(--accent); }
     .turn-row.role-tool-result { border-left: 3px solid #f59e0b; }
+
+    .step-row {
+      margin: 4px 0 4px 12px;
+      padding: 0;
+      border-left: 2px solid var(--border-color);
+      border-radius: 4px;
+    }
+    .step-row.role-user { border-left-color: #4a9eff; }
+    .step-row.role-assistant { border-left-color: var(--accent); }
+    .step-row.role-tool-result { border-left-color: #f59e0b; }
+    .step-row-header {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 8px;
+      cursor: pointer;
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+    .step-row-header:hover { background: var(--bg-hover); }
+    .step-indicator {
+      font-size: 10px;
+      transition: transform 0.15s;
+      color: var(--text-muted);
+    }
+    .step-row.expanded > .step-row-header .step-indicator { transform: rotate(90deg); }
+    .step-label {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: var(--text-muted);
+      font-size: 11px;
+    }
+    .step-expanded {
+      display: none;
+      padding: 4px 8px 8px 20px;
+    }
+    .step-row.expanded > .step-expanded { display: block; }
     .turn-row-header {
       display: flex;
       align-items: center;
@@ -1420,7 +1459,8 @@
     }
 
     // ---- Turns Tab ----
-    let expandedTurns = new Set();
+    let expandedTurns = new Set();     // turn numbers
+    let expandedSteps = new Set();     // "turnNum-stepIdx" keys
     let expandedThinking = new Set();
     let expandedToolInputs = new Set();
     let expandedOutputs = new Set();
@@ -1449,6 +1489,136 @@
     function truncate(str, max) {
       if (!str || str.length <= max) return { text: str || '', truncated: false };
       return { text: str.substring(0, max), truncated: true };
+    }
+
+    function stepLabel(step) {
+      if (step.role === 'tool-result') {
+        // Show tool result with truncated output preview
+        const tr = (step.content || []).find(c => c.type === 'tool_result');
+        if (tr && tr.toolResult) {
+          const out = tr.toolResult.stdout || tr.toolResult.stderr || '';
+          const preview = out.length > 80 ? out.substring(0, 80) + '...' : out;
+          return preview ? 'tool-result: ' + preview : 'tool-result';
+        }
+        return 'tool-result';
+      }
+      if (step.role === 'assistant') {
+        // Show tool names or text preview
+        if (step.toolCalls.length > 0) return step.toolCalls.join(', ');
+        const text = (step.content || []).find(c => c.type === 'text');
+        if (text && text.text) {
+          const preview = text.text.length > 80 ? text.text.substring(0, 80) + '...' : text.text;
+          return preview;
+        }
+        const thinking = (step.content || []).find(c => c.type === 'thinking');
+        if (thinking) return '(thinking)';
+        return 'assistant';
+      }
+      // user
+      const text = (step.content || []).find(c => c.type === 'text');
+      if (text && text.text) {
+        const preview = text.text.length > 80 ? text.text.substring(0, 80) + '...' : text.text;
+        return preview;
+      }
+      return 'user';
+    }
+
+    function renderContentBlock(c, blockKey) {
+      let html = '';
+      html += '<div class="turn-content-block">';
+
+      if (c.type === 'thinking') {
+        const isThinkExpanded = expandedThinking.has(blockKey);
+        const trunc = truncate(c.text, 500);
+        html += `<div class="tcb-thinking-header" data-thinking-key="${blockKey}">▸ Thinking</div>`;
+        html += `<div class="tcb-thinking-text" data-thinking-body="${blockKey}">`;
+        html += escHtml(isThinkExpanded || !trunc.truncated ? (c.text || '') : trunc.text);
+        if (trunc.truncated && !isThinkExpanded) {
+          html += `<span class="tcb-code-toggle" data-thinking-toggle="${blockKey}">... Show more</span>`;
+        } else if (trunc.truncated && isThinkExpanded) {
+          html += `<span class="tcb-code-toggle" data-thinking-toggle="${blockKey}"> Show less</span>`;
+        }
+        html += '</div>';
+      } else if (c.type === 'text') {
+        html += `<div class="tcb-text">${escHtml(c.text || '')}</div>`;
+      } else if (c.type === 'tool_use') {
+        html += '<div class="tcb-tool-header">';
+        html += `<span class="turn-pill">${escHtml(c.toolName || 'unknown')}</span>`;
+        html += '</div>';
+        if (c.toolInput) {
+          const inputJson = JSON.stringify(c.toolInput, null, 2);
+          const inputLines = inputJson.split('\n').length;
+          const isInputExpanded = expandedToolInputs.has(blockKey);
+          const needsCollapse = inputLines > 5;
+          html += `<div class="tcb-code${needsCollapse && !isInputExpanded ? ' collapsible' : ''}" data-tool-input="${blockKey}">${escHtml(inputJson)}</div>`;
+          if (needsCollapse) {
+            html += `<span class="tcb-code-toggle" data-tool-input-toggle="${blockKey}">${isInputExpanded ? 'Collapse' : 'Expand'}</span>`;
+          }
+        }
+        if (c.toolResult) {
+          const tr = c.toolResult;
+          if (tr.interrupted) html += `<span class="interrupted-badge">interrupted</span>`;
+          if (tr.isImage) {
+            html += `<div class="tcb-result-label">Result (image)</div>`;
+            html += `<div style="color:var(--text-muted);font-size:11px;font-style:italic;">Image content not displayed.</div>`;
+          } else {
+            if (tr.stdout) {
+              html += `<div class="tcb-result-label">stdout</div>`;
+              const outTrunc = truncate(tr.stdout, 2000);
+              const outKey = `stdout-${blockKey}`;
+              const isOutExpanded = expandedOutputs.has(outKey);
+              html += `<div class="tcb-code tcb-stdout">${escHtml(isOutExpanded || !outTrunc.truncated ? tr.stdout : outTrunc.text)}</div>`;
+              if (outTrunc.truncated) {
+                html += `<span class="tcb-code-toggle" data-output-toggle="${outKey}">${isOutExpanded ? 'Show less' : 'Show full output'}</span>`;
+              }
+            }
+            if (tr.stderr) {
+              html += `<div class="tcb-result-label">stderr</div>`;
+              const errTrunc = truncate(tr.stderr, 2000);
+              const errKey = `stderr-${blockKey}`;
+              const isErrExpanded = expandedOutputs.has(errKey);
+              html += `<div class="tcb-code tcb-stderr">${escHtml(isErrExpanded || !errTrunc.truncated ? tr.stderr : errTrunc.text)}</div>`;
+              if (errTrunc.truncated) {
+                html += `<span class="tcb-code-toggle" data-output-toggle="${errKey}">${isErrExpanded ? 'Show less' : 'Show full output'}</span>`;
+              }
+            }
+          }
+        }
+      } else if (c.type === 'tool_result') {
+        const tr = c.toolResult;
+        if (tr) {
+          if (tr.stdout) {
+            const outTrunc = truncate(tr.stdout, 500);
+            const outKey = `tr-stdout-${blockKey}`;
+            const isOutExpanded = expandedOutputs.has(outKey);
+            html += `<div class="tcb-result-label">stdout</div>`;
+            html += `<div class="tcb-code tcb-stdout">${escHtml(isOutExpanded || !outTrunc.truncated ? tr.stdout : outTrunc.text)}</div>`;
+            if (outTrunc.truncated) {
+              html += `<span class="tcb-code-toggle" data-output-toggle="${outKey}">${isOutExpanded ? 'Show less' : 'Show full output'}</span>`;
+            }
+          }
+          if (tr.stderr) {
+            const errTrunc = truncate(tr.stderr, 500);
+            const errKey = `tr-stderr-${blockKey}`;
+            const isErrExpanded = expandedOutputs.has(errKey);
+            html += `<div class="tcb-result-label">stderr</div>`;
+            html += `<div class="tcb-code tcb-stderr">${escHtml(isErrExpanded || !errTrunc.truncated ? tr.stderr : errTrunc.text)}</div>`;
+            if (errTrunc.truncated) {
+              html += `<span class="tcb-code-toggle" data-output-toggle="${errKey}">${isErrExpanded ? 'Show less' : 'Show full output'}</span>`;
+            }
+          }
+          if (tr.interrupted) html += `<span class="interrupted-badge">interrupted</span>`;
+          if (tr.isImage) html += `<div style="color:var(--text-muted);font-size:11px;font-style:italic;">Image content</div>`;
+          if (!tr.stdout && !tr.stderr && !tr.isImage) {
+            html += '<div style="color:var(--text-muted);font-size:12px;">No output.</div>';
+          }
+        }
+      } else if (c.type === 'other') {
+        html += `<div class="tcb-code">${escHtml(c.text || '')}</div>`;
+      }
+
+      html += '</div>';
+      return html;
     }
 
     function renderTurns() {
@@ -1489,24 +1659,34 @@
       html += `</div>`;
 
       html += '<div class="turn-list">';
-      reversed.forEach((t, idx) => {
-        const isExpanded = expandedTurns.has(t.number);
-        const roleClass = t.role === 'tool-result' ? 'role-tool-result' : t.role === 'user' ? 'role-user' : 'role-assistant';
+      reversed.forEach((t) => {
+        const isTurnExpanded = expandedTurns.has(t.number);
+        const roleClass = t.role === 'user' ? 'role-user' : 'role-assistant';
         const durClass = durationClass(t.durationMs);
         const tok = t.tokens || {};
+        const steps = t.steps || [];
+        const stepCount = steps.length;
 
-        html += `<div class="turn-row ${roleClass}${isExpanded ? ' expanded' : ''}" data-turn="${t.number}">`;
+        // Turn header row
+        html += `<div class="turn-row ${roleClass}${isTurnExpanded ? ' expanded' : ''}" data-turn="${t.number}">`;
         html += `<div class="turn-row-header">`;
         html += `<span class="turn-num">#${t.number}</span>`;
         html += `<span class="role-badge ${t.role}">${t.role}</span>`;
         if (t.timestamp) html += `<span class="turn-timestamp">${fmtTime(t.timestamp)}</span>`;
         if (t.durationMs != null) html += `<span class="turn-duration${durClass ? ' ' + durClass : ''}">${fmtDuration(t.durationMs)}</span>`;
 
-        // Tool pills
+        // Step count badge
+        if (stepCount > 1) {
+          html += `<span style="font-size:11px;color:var(--text-muted);margin-left:4px;">(${stepCount} steps)</span>`;
+        }
+
+        // Tool pills (deduplicated with counts)
         if (t.toolCalls && t.toolCalls.length > 0) {
+          const toolCounts = {};
+          t.toolCalls.forEach(tc => { toolCounts[tc] = (toolCounts[tc] || 0) + 1; });
           html += '<span class="turn-pills">';
-          t.toolCalls.forEach(tc => {
-            html += `<span class="turn-pill">${escHtml(tc)}</span>`;
+          Object.entries(toolCounts).forEach(([name, count]) => {
+            html += `<span class="turn-pill">${escHtml(name)}${count > 1 ? ' ×' + count : ''}</span>`;
           });
           html += '</span>';
         }
@@ -1518,123 +1698,60 @@
         }
         html += '</span>';
 
-        // Stop reason
         if (t.stopReason) {
           html += ` <span class="stop-badge">${escHtml(t.stopReason)}</span>`;
         }
 
         html += '</div>'; // end turn-row-header
 
-        // Expanded content
+        // Expanded: show steps tree
         html += '<div class="turn-expanded">';
-        const content = t.role === 'tool-result'
-          ? (t.content || [])  // show tool_result blocks for tool-result turns
-          : (t.content || []).filter(c => c.type !== 'tool_result');
-        if (content.length === 0) {
-          html += '<div style="color:var(--text-muted);font-size:12px;">No content blocks.</div>';
-        }
-        content.forEach((c, ci) => {
-          const blockKey = `${t.number}-${ci}`;
-          html += '<div class="turn-content-block">';
 
-          if (c.type === 'thinking') {
-            const isThinkExpanded = expandedThinking.has(blockKey);
-            const trunc = truncate(c.text, 500);
-            html += `<div class="tcb-thinking-header" data-thinking-key="${blockKey}">▸ Thinking</div>`;
-            html += `<div class="tcb-thinking-text" data-thinking-body="${blockKey}">`;
-            html += escHtml(isThinkExpanded || !trunc.truncated ? (c.text || '') : trunc.text);
-            if (trunc.truncated && !isThinkExpanded) {
-              html += `<span class="tcb-code-toggle" data-thinking-toggle="${blockKey}">... Show more</span>`;
-            } else if (trunc.truncated && isThinkExpanded) {
-              html += `<span class="tcb-code-toggle" data-thinking-toggle="${blockKey}"> Show less</span>`;
-            }
-            html += '</div>';
-          } else if (c.type === 'text') {
-            html += `<div class="tcb-text">${escHtml(c.text || '')}</div>`;
-          } else if (c.type === 'tool_use') {
-            html += '<div class="tcb-tool-header">';
-            html += `<span class="turn-pill">${escHtml(c.toolName || 'unknown')}</span>`;
-            html += '</div>';
-
-            // Tool input
-            if (c.toolInput) {
-              const inputJson = JSON.stringify(c.toolInput, null, 2);
-              const inputLines = inputJson.split('\n').length;
-              const isInputExpanded = expandedToolInputs.has(blockKey);
-              const needsCollapse = inputLines > 5;
-              html += `<div class="tcb-code${needsCollapse && !isInputExpanded ? ' collapsible' : ''}" data-tool-input="${blockKey}">${escHtml(inputJson)}</div>`;
-              if (needsCollapse) {
-                html += `<span class="tcb-code-toggle" data-tool-input-toggle="${blockKey}">${isInputExpanded ? 'Collapse' : 'Expand'}</span>`;
-              }
-            }
-
-            // Tool result
-            if (c.toolResult) {
-              const tr = c.toolResult;
-              if (tr.interrupted) {
-                html += `<span class="interrupted-badge">interrupted</span>`;
-              }
-              if (tr.isImage) {
-                html += `<div class="tcb-result-label">Result (image)</div>`;
-                html += `<div style="color:var(--text-muted);font-size:11px;font-style:italic;">Image content not displayed.</div>`;
-              } else {
-                if (tr.stdout) {
-                  html += `<div class="tcb-result-label">stdout</div>`;
-                  const outTrunc = truncate(tr.stdout, 2000);
-                  const outKey = `stdout-${blockKey}`;
-                  const isOutExpanded = expandedOutputs.has(outKey);
-                  html += `<div class="tcb-code tcb-stdout">${escHtml(isOutExpanded || !outTrunc.truncated ? tr.stdout : outTrunc.text)}</div>`;
-                  if (outTrunc.truncated) {
-                    html += `<span class="tcb-code-toggle" data-output-toggle="${outKey}">${isOutExpanded ? 'Show less' : 'Show full output'}</span>`;
-                  }
-                }
-                if (tr.stderr) {
-                  html += `<div class="tcb-result-label">stderr</div>`;
-                  const errTrunc = truncate(tr.stderr, 2000);
-                  const errKey = `stderr-${blockKey}`;
-                  const isErrExpanded = expandedOutputs.has(errKey);
-                  html += `<div class="tcb-code tcb-stderr">${escHtml(isErrExpanded || !errTrunc.truncated ? tr.stderr : errTrunc.text)}</div>`;
-                  if (errTrunc.truncated) {
-                    html += `<span class="tcb-code-toggle" data-output-toggle="${errKey}">${isErrExpanded ? 'Show less' : 'Show full output'}</span>`;
-                  }
-                }
-              }
-            }
-          } else if (c.type === 'tool_result') {
-            const tr = c.toolResult;
-            if (tr) {
-              if (tr.stdout) {
-                const outTrunc = truncate(tr.stdout, 500);
-                const outKey = `tr-stdout-${blockKey}`;
-                const isOutExpanded = expandedOutputs.has(outKey);
-                html += `<div class="tcb-result-label">stdout</div>`;
-                html += `<div class="tcb-code tcb-stdout">${escHtml(isOutExpanded || !outTrunc.truncated ? tr.stdout : outTrunc.text)}</div>`;
-                if (outTrunc.truncated) {
-                  html += `<span class="tcb-code-toggle" data-output-toggle="${outKey}">${isOutExpanded ? 'Show less' : 'Show full output'}</span>`;
-                }
-              }
-              if (tr.stderr) {
-                const errTrunc = truncate(tr.stderr, 500);
-                const errKey = `tr-stderr-${blockKey}`;
-                const isErrExpanded = expandedOutputs.has(errKey);
-                html += `<div class="tcb-result-label">stderr</div>`;
-                html += `<div class="tcb-code tcb-stderr">${escHtml(isErrExpanded || !errTrunc.truncated ? tr.stderr : errTrunc.text)}</div>`;
-                if (errTrunc.truncated) {
-                  html += `<span class="tcb-code-toggle" data-output-toggle="${errKey}">${isErrExpanded ? 'Show less' : 'Show full output'}</span>`;
-                }
-              }
-              if (tr.interrupted) html += `<span class="interrupted-badge">interrupted</span>`;
-              if (tr.isImage) html += `<div style="color:var(--text-muted);font-size:11px;font-style:italic;">Image content</div>`;
-              if (!tr.stdout && !tr.stderr && !tr.isImage) {
-                html += '<div style="color:var(--text-muted);font-size:12px;">No output.</div>';
-              }
-            }
-          } else if (c.type === 'other') {
-            html += `<div class="tcb-code">${escHtml(c.text || '')}</div>`;
+        if (stepCount <= 1) {
+          // Single step: show content directly (no step tree)
+          const content = (t.content || []).filter(c => c.type !== 'tool_result');
+          if (content.length === 0) {
+            html += '<div style="color:var(--text-muted);font-size:12px;">No content blocks.</div>';
           }
+          content.forEach((c, ci) => {
+            html += renderContentBlock(c, `${t.number}-0-${ci}`);
+          });
+        } else {
+          // Multiple steps: render as tree
+          steps.forEach((step, si) => {
+            const stepKey = `${t.number}-${si}`;
+            const isStepExpanded = expandedSteps.has(stepKey);
+            const stepDurClass = durationClass(step.durationMs);
+            const stepRoleClass = step.role === 'tool-result' ? 'role-tool-result' : step.role === 'user' ? 'role-user' : 'role-assistant';
 
-          html += '</div>'; // end turn-content-block
-        });
+            html += `<div class="step-row ${stepRoleClass}${isStepExpanded ? ' expanded' : ''}" data-step="${stepKey}">`;
+            html += `<div class="step-row-header">`;
+            html += `<span class="step-indicator">▸</span>`;
+            html += `<span class="role-badge ${step.role}" style="font-size:10px;padding:1px 6px;">${step.role}</span>`;
+            if (step.timestamp) html += `<span class="turn-timestamp">${fmtTime(step.timestamp)}</span>`;
+            if (step.durationMs != null) html += `<span class="turn-duration${stepDurClass ? ' ' + stepDurClass : ''}">${fmtDuration(step.durationMs)}</span>`;
+
+            // Step label preview
+            html += `<span class="step-label">${escHtml(stepLabel(step))}</span>`;
+
+            html += '</div>'; // end step-row-header
+
+            // Step expanded content
+            html += '<div class="step-expanded">';
+            const stepContent = step.role === 'tool-result'
+              ? (step.content || [])
+              : (step.content || []).filter(c => c.type !== 'tool_result');
+            stepContent.forEach((c, ci) => {
+              html += renderContentBlock(c, `${t.number}-${si}-${ci}`);
+            });
+            if (stepContent.length === 0) {
+              html += '<div style="color:var(--text-muted);font-size:12px;">No content.</div>';
+            }
+            html += '</div>'; // end step-expanded
+            html += '</div>'; // end step-row
+          });
+        }
+
         html += '</div>'; // end turn-expanded
         html += '</div>'; // end turn-row
       });
@@ -1645,11 +1762,22 @@
       // Attach turn expand/collapse
       document.querySelectorAll('.turn-row-header').forEach(header => {
         header.addEventListener('click', (e) => {
-          // Don't toggle if clicking a toggle link inside
           if (e.target.closest('.tcb-code-toggle')) return;
           const turnNum = parseInt(header.parentElement.dataset.turn);
           if (expandedTurns.has(turnNum)) expandedTurns.delete(turnNum);
           else expandedTurns.add(turnNum);
+          renderTurns();
+        });
+      });
+
+      // Attach step expand/collapse
+      document.querySelectorAll('.step-row-header').forEach(header => {
+        header.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (e.target.closest('.tcb-code-toggle')) return;
+          const stepKey = header.parentElement.dataset.step;
+          if (expandedSteps.has(stepKey)) expandedSteps.delete(stepKey);
+          else expandedSteps.add(stepKey);
           renderTurns();
         });
       });
