@@ -688,6 +688,7 @@
     .turn-row:hover { border-color: var(--accent); }
     .turn-row.role-user { border-left: 3px solid #4a9eff; }
     .turn-row.role-assistant { border-left: 3px solid var(--accent); }
+    .turn-row.role-tool-result { border-left: 3px solid #f59e0b; }
     .turn-row-header {
       display: flex;
       align-items: center;
@@ -713,6 +714,7 @@
     }
     .role-badge.user { background: rgba(74,158,255,0.15); color: #4a9eff; }
     .role-badge.assistant { background: rgba(0,210,255,0.15); color: var(--accent); }
+    .role-badge.tool-result { background: rgba(245,158,11,0.15); color: #f59e0b; }
     .turn-timestamp {
       font-size: 11px;
       color: var(--text-muted);
@@ -1489,7 +1491,7 @@
       html += '<div class="turn-list">';
       reversed.forEach((t, idx) => {
         const isExpanded = expandedTurns.has(t.number);
-        const roleClass = t.role === 'user' ? 'role-user' : 'role-assistant';
+        const roleClass = t.role === 'tool-result' ? 'role-tool-result' : t.role === 'user' ? 'role-user' : 'role-assistant';
         const durClass = durationClass(t.durationMs);
         const tok = t.tokens || {};
 
@@ -1525,7 +1527,9 @@
 
         // Expanded content
         html += '<div class="turn-expanded">';
-        const content = (t.content || []).filter(c => c.type !== 'tool_result');
+        const content = t.role === 'tool-result'
+          ? (t.content || [])  // show tool_result blocks for tool-result turns
+          : (t.content || []).filter(c => c.type !== 'tool_result');
         if (content.length === 0) {
           html += '<div style="color:var(--text-muted);font-size:12px;">No content blocks.</div>';
         }
@@ -1594,6 +1598,35 @@
                     html += `<span class="tcb-code-toggle" data-output-toggle="${errKey}">${isErrExpanded ? 'Show less' : 'Show full output'}</span>`;
                   }
                 }
+              }
+            }
+          } else if (c.type === 'tool_result') {
+            const tr = c.toolResult;
+            if (tr) {
+              if (tr.stdout) {
+                const outTrunc = truncate(tr.stdout, 500);
+                const outKey = `tr-stdout-${blockKey}`;
+                const isOutExpanded = expandedOutputs.has(outKey);
+                html += `<div class="tcb-result-label">stdout</div>`;
+                html += `<div class="tcb-code tcb-stdout">${escHtml(isOutExpanded || !outTrunc.truncated ? tr.stdout : outTrunc.text)}</div>`;
+                if (outTrunc.truncated) {
+                  html += `<span class="tcb-code-toggle" data-output-toggle="${outKey}">${isOutExpanded ? 'Show less' : 'Show full output'}</span>`;
+                }
+              }
+              if (tr.stderr) {
+                const errTrunc = truncate(tr.stderr, 500);
+                const errKey = `tr-stderr-${blockKey}`;
+                const isErrExpanded = expandedOutputs.has(errKey);
+                html += `<div class="tcb-result-label">stderr</div>`;
+                html += `<div class="tcb-code tcb-stderr">${escHtml(isErrExpanded || !errTrunc.truncated ? tr.stderr : errTrunc.text)}</div>`;
+                if (errTrunc.truncated) {
+                  html += `<span class="tcb-code-toggle" data-output-toggle="${errKey}">${isErrExpanded ? 'Show less' : 'Show full output'}</span>`;
+                }
+              }
+              if (tr.interrupted) html += `<span class="interrupted-badge">interrupted</span>`;
+              if (tr.isImage) html += `<div style="color:var(--text-muted);font-size:11px;font-style:italic;">Image content</div>`;
+              if (!tr.stdout && !tr.stderr && !tr.isImage) {
+                html += '<div style="color:var(--text-muted);font-size:12px;">No output.</div>';
               }
             }
           } else if (c.type === 'other') {

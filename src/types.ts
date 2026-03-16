@@ -94,7 +94,7 @@ export interface WatcherEvent {
 // Turn-level tracking
 export interface Turn {
   number: number;
-  role: 'user' | 'assistant';
+  role: 'user' | 'assistant' | 'tool-result';
   timestamp: string | null;
   durationMs: number | null;       // time from this entry to next entry (latency)
   toolCalls: string[];

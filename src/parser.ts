@@ -248,8 +248,12 @@ export async function parseSessionFileDetailed(filePath: string, project: string
     const msg = raw.message;
     if (!msg) continue;
 
-    const role = msg.role as 'user' | 'assistant' | undefined;
-    if (!role || (role !== 'user' && role !== 'assistant')) continue;
+    const rawRole = msg.role as 'user' | 'assistant' | undefined;
+    if (!rawRole || (rawRole !== 'user' && rawRole !== 'assistant')) continue;
+
+    // Detect if this user message is actually a tool result
+    const isToolResult = rawRole === 'user' && !!raw.toolUseResult;
+    const role: 'user' | 'assistant' | 'tool-result' = isToolResult ? 'tool-result' : rawRole;
 
     // Track turn changes
     if (role !== lastRole) {
