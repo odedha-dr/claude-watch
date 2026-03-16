@@ -728,6 +728,39 @@
       padding: 4px 8px 8px 20px;
     }
     .step-row.expanded > .step-expanded { display: block; }
+
+    /* Pricing modal */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.6);
+      z-index: 1000;
+      justify-content: center;
+      align-items: center;
+    }
+    .modal-overlay.visible { display: flex; }
+    .modal-content {
+      background: var(--bg-primary);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 24px;
+      max-width: 600px;
+      width: 90%;
+      max-height: 80vh;
+      overflow-y: auto;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    }
+    .modal-content h3 { margin: 0 0 16px 0; font-size: 16px; }
+    .modal-content table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .modal-content th, .modal-content td { padding: 6px 10px; text-align: right; border-bottom: 1px solid var(--border-color); }
+    .modal-content th:first-child, .modal-content td:first-child { text-align: left; }
+    .modal-content th { color: var(--text-muted); font-weight: 600; font-size: 11px; text-transform: uppercase; }
+    .modal-content .pricing-link { display: block; margin-top: 16px; font-size: 12px; color: var(--accent); text-decoration: none; }
+    .modal-content .pricing-link:hover { text-decoration: underline; }
+    .modal-close { float: right; background: none; border: none; color: var(--text-muted); font-size: 18px; cursor: pointer; padding: 0; line-height: 1; }
+    .modal-close:hover { color: var(--text-primary); }
+
     .turn-row-header {
       display: flex;
       align-items: center;
@@ -1027,9 +1060,9 @@
           <div class="widget-value" id="w-tokens">0</div>
           <div class="widget-label">Tokens</div>
         </div>
-        <div class="widget">
+        <div class="widget" id="w-cost-widget" style="cursor:pointer;" title="Click to view pricing model">
           <div class="widget-value" id="w-cost">$0.00</div>
-          <div class="widget-label">Cost</div>
+          <div class="widget-label">Cost ⓘ</div>
         </div>
         <div class="widget">
           <div class="widget-value" id="w-active">0</div>
@@ -1077,6 +1110,35 @@
           <div class="tab-pane" id="tab-flow"></div>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- Pricing modal -->
+  <div class="modal-overlay" id="pricing-modal">
+    <div class="modal-content">
+      <button class="modal-close" id="pricing-modal-close">&times;</button>
+      <h3>Cost Model</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Model</th>
+            <th>Input</th>
+            <th>Output</th>
+            <th>Cache Write</th>
+            <th>Cache Read</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>Opus 4.6 / 4.5</td><td>$5.00</td><td>$25.00</td><td>$6.25</td><td>$0.50</td></tr>
+          <tr><td>Opus 4.1 / 4.0</td><td>$15.00</td><td>$75.00</td><td>$18.75</td><td>$1.50</td></tr>
+          <tr><td>Sonnet (all)</td><td>$3.00</td><td>$15.00</td><td>$3.75</td><td>$0.30</td></tr>
+          <tr><td>Haiku 4.5</td><td>$1.00</td><td>$5.00</td><td>$1.25</td><td>$0.10</td></tr>
+          <tr><td>Haiku 3.5</td><td>$0.80</td><td>$4.00</td><td>$1.00</td><td>$0.08</td></tr>
+          <tr><td>Haiku 3</td><td>$0.25</td><td>$1.25</td><td>$0.30</td><td>$0.03</td></tr>
+        </tbody>
+      </table>
+      <div style="font-size:11px;color:var(--text-muted);margin-top:8px;">Prices per million tokens. Unknown models default to Sonnet pricing.</div>
+      <a class="pricing-link" href="https://docs.anthropic.com/en/docs/about-claude/pricing" target="_blank" rel="noopener">View full pricing on Anthropic docs &rarr;</a>
     </div>
   </div>
 
@@ -2485,6 +2547,17 @@
     }
 
     connectSSE();
+
+    // Pricing modal
+    document.getElementById('w-cost-widget').addEventListener('click', () => {
+      document.getElementById('pricing-modal').classList.add('visible');
+    });
+    document.getElementById('pricing-modal-close').addEventListener('click', () => {
+      document.getElementById('pricing-modal').classList.remove('visible');
+    });
+    document.getElementById('pricing-modal').addEventListener('click', (e) => {
+      if (e.target === e.currentTarget) e.currentTarget.classList.remove('visible');
+    });
 
     // Load initial config (e.g. CLI --filter-project)
     fetch('/api/config').then(r => r.json()).then(cfg => {
