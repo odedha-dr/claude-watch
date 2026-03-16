@@ -1423,6 +1423,7 @@
     let expandedToolInputs = new Set();
     let expandedOutputs = new Set();
     let turnsSearchQuery = '';
+    let turnsSearchTimer = null;
 
     function fmtTime(iso) {
       if (!iso) return '';
@@ -1463,17 +1464,15 @@
       const query = turnsSearchQuery.toLowerCase();
       const turns = query
         ? allTurns.filter(t => {
-            // Search in text content, tool names, tool inputs, and results
+            if (t.toolCalls && t.toolCalls.some(tc => tc.toLowerCase().includes(query))) return true;
             for (const c of (t.content || [])) {
               if (c.text && c.text.toLowerCase().includes(query)) return true;
               if (c.toolName && c.toolName.toLowerCase().includes(query)) return true;
-              if (c.toolInput && JSON.stringify(c.toolInput).toLowerCase().includes(query)) return true;
               if (c.toolResult) {
                 if (c.toolResult.stdout && c.toolResult.stdout.toLowerCase().includes(query)) return true;
                 if (c.toolResult.stderr && c.toolResult.stderr.toLowerCase().includes(query)) return true;
               }
             }
-            if (t.toolCalls && t.toolCalls.some(tc => tc.toLowerCase().includes(query))) return true;
             return false;
           })
         : allTurns;
@@ -1664,15 +1663,17 @@
         });
       });
 
-      // Search input
+      // Search input (debounced)
       const searchInput = document.getElementById('turns-search-input');
       if (searchInput) {
         searchInput.addEventListener('input', (e) => {
-          turnsSearchQuery = e.target.value;
-          renderTurns();
-          // Re-focus and restore cursor position
-          const el = document.getElementById('turns-search-input');
-          if (el) { el.focus(); el.selectionStart = el.selectionEnd = el.value.length; }
+          clearTimeout(turnsSearchTimer);
+          turnsSearchTimer = setTimeout(() => {
+            turnsSearchQuery = e.target.value;
+            renderTurns();
+            const el = document.getElementById('turns-search-input');
+            if (el) { el.focus(); el.selectionStart = el.selectionEnd = el.value.length; }
+          }, 250);
         });
       }
     }
@@ -2272,6 +2273,7 @@
     }
 
     // ---- SSE Connection ----
+    let sseDetailTimer = null;
     function connectSSE() {
       const evtSource = new EventSource('/api/events');
       evtSource.onmessage = (event) => {
@@ -2286,25 +2288,28 @@
           });
           updateProjectDropdown();
           renderSidebar();
-          // Re-fetch and re-render detail for selected session
+          // Re-fetch and re-render detail for selected session (debounced)
           if (selectedId) {
             const s = allSessions.find(s => s.id === selectedId);
             if (s) {
               renderHeader();
-              fetch('/api/sessions/' + encodeURIComponent(selectedId))
-                .then(r => r.ok ? r.json() : null)
-                .then(detail => {
-                  if (detail && selectedId === detail.id) {
-                    selectedDetail = detail;
-                    if (activeTab === 'overview') renderOverview();
-                    else if (activeTab === 'turns') renderTurns();
-                    else if (activeTab === 'tools') renderTools();
-                    else if (activeTab === 'subagents') renderSubagents();
-                    else if (activeTab === 'skills') renderSkills();
-                    else if (activeTab === 'flow') renderFlow();
-                  }
-                })
-                .catch(() => {});
+              clearTimeout(sseDetailTimer);
+              sseDetailTimer = setTimeout(() => {
+                fetch('/api/sessions/' + encodeURIComponent(selectedId))
+                  .then(r => r.ok ? r.json() : null)
+                  .then(detail => {
+                    if (detail && selectedId === detail.id) {
+                      selectedDetail = detail;
+                      if (activeTab === 'overview') renderOverview();
+                      else if (activeTab === 'turns') renderTurns();
+                      else if (activeTab === 'tools') renderTools();
+                      else if (activeTab === 'subagents') renderSubagents();
+                      else if (activeTab === 'skills') renderSkills();
+                      else if (activeTab === 'flow') renderFlow();
+                    }
+                  })
+                  .catch(() => {});
+              }, 500);
             }
           }
         } catch (e) {
