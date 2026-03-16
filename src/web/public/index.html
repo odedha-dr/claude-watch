@@ -1644,6 +1644,19 @@
                 html += `<span class="tcb-code-toggle" data-output-toggle="${errKey}">${isErrExpanded ? 'Show less' : 'Show full output'}</span>`;
               }
             }
+            // Fallback: generic content (Read, Edit, Grep, Glob, etc.)
+            if (!tr.stdout && !tr.stderr && tr.content && tr.content.trim()) {
+              const label = tr.isError ? 'Error' : 'Output';
+              const cls = tr.isError ? 'tcb-stderr' : 'tcb-stdout';
+              const contTrunc = truncate(tr.content, 2000);
+              const contKey = `content-${blockKey}`;
+              const isContExpanded = expandedOutputs.has(contKey);
+              html += `<div class="tcb-result-label">${label}</div>`;
+              html += `<div class="tcb-code ${cls}">${escHtml(isContExpanded || !contTrunc.truncated ? tr.content : contTrunc.text)}</div>`;
+              if (contTrunc.truncated) {
+                html += `<span class="tcb-code-toggle" data-output-toggle="${contKey}">${isContExpanded ? 'Show less' : 'Show full output'}</span>`;
+              }
+            }
           }
         }
       } else if (c.type === 'tool_result') {
@@ -1669,9 +1682,22 @@
               html += `<span class="tcb-code-toggle" data-output-toggle="${errKey}">${isErrExpanded ? 'Show less' : 'Show full output'}</span>`;
             }
           }
+          // Fallback: generic content
+          if (!tr.stdout && !tr.stderr && tr.content && tr.content.trim()) {
+            const label = tr.isError ? 'Error' : 'Output';
+            const cls = tr.isError ? 'tcb-stderr' : 'tcb-stdout';
+            const contTrunc = truncate(tr.content, 500);
+            const contKey = `tr-content-${blockKey}`;
+            const isContExpanded = expandedOutputs.has(contKey);
+            html += `<div class="tcb-result-label">${label}</div>`;
+            html += `<div class="tcb-code ${cls}">${escHtml(isContExpanded || !contTrunc.truncated ? tr.content : contTrunc.text)}</div>`;
+            if (contTrunc.truncated) {
+              html += `<span class="tcb-code-toggle" data-output-toggle="${contKey}">${isContExpanded ? 'Show less' : 'Show full output'}</span>`;
+            }
+          }
           if (tr.interrupted) html += `<span class="interrupted-badge">interrupted</span>`;
           if (tr.isImage) html += `<div style="color:var(--text-muted);font-size:11px;font-style:italic;">Image content</div>`;
-          if (!tr.stdout && !tr.stderr && !tr.isImage) {
+          if (!tr.stdout && !tr.stderr && !tr.content && !tr.isImage) {
             html += '<div style="color:var(--text-muted);font-size:12px;">No output.</div>';
           }
         }
@@ -1993,6 +2019,7 @@
           let statusHtml = '';
           if (tc.result) {
             if (tc.result.interrupted) statusHtml = '<span class="tc-status-interrupted">interrupted</span>';
+            else if (tc.result.isError) statusHtml = '<span class="tc-status-err">error</span>';
             else if (tc.result.stderr && tc.result.stderr.trim()) statusHtml = '<span class="tc-status-err">stderr</span>';
             else statusHtml = '<span class="tc-status-ok">✓</span>';
           }
@@ -2024,6 +2051,15 @@
                 const err = tc.result.stderr.length > 2000 ? tc.result.stderr.slice(0, 2000) + '\n... (truncated)' : tc.result.stderr;
                 html += '<div class="tc-section"><div class="tc-section-label">Stderr</div>';
                 html += `<pre class="tc-stderr">${escHtml(err)}</pre>`;
+                html += '</div>';
+              }
+              // Fallback: generic content (Read, Edit, Grep, Glob, etc.)
+              if (!tc.result.stdout && !tc.result.stderr && tc.result.content && tc.result.content.trim()) {
+                const cont = tc.result.content.length > 2000 ? tc.result.content.slice(0, 2000) + '\n... (truncated)' : tc.result.content;
+                const label = tc.result.isError ? 'Error' : 'Output';
+                const cls = tc.result.isError ? 'tc-stderr' : 'tc-stdout';
+                html += `<div class="tc-section"><div class="tc-section-label">${label}</div>`;
+                html += `<pre class="${cls}">${escHtml(cont)}</pre>`;
                 html += '</div>';
               }
               if (tc.result.interrupted) {

@@ -184,7 +184,7 @@ export async function parseSessionFileDetailed(filePath: string, project: string
     timestamp: string | null;
   }
   const parsed: ParsedEntry[] = [];
-  const toolResults = new Map<string, { stdout?: string; stderr?: string; interrupted?: boolean; isImage?: boolean }>();
+  const toolResults = new Map<string, { stdout?: string; stderr?: string; content?: string; isError?: boolean; interrupted?: boolean; isImage?: boolean }>();
   // Map tool_use_id → agentId from queue-operation entries
   const toolUseToAgent = new Map<string, string>();
 
@@ -200,16 +200,21 @@ export async function parseSessionFileDetailed(filePath: string, project: string
     parsed.push({ raw, timestamp: raw.timestamp || null });
 
     // Collect tool results from user entries
-    if (raw.type === 'user' && raw.toolUseResult) {
+    if (raw.type === 'user') {
       const msg = raw.message;
       if (msg && Array.isArray(msg.content)) {
         for (const item of msg.content as RawContent[]) {
           if (item.type === 'tool_result' && item.tool_use_id) {
+            const tur = raw.toolUseResult;
             toolResults.set(item.tool_use_id, {
-              stdout: raw.toolUseResult.stdout as string | undefined,
-              stderr: raw.toolUseResult.stderr as string | undefined,
-              interrupted: raw.toolUseResult.interrupted as boolean | undefined,
-              isImage: raw.toolUseResult.isImage as boolean | undefined,
+              // Bash-style stdout/stderr
+              stdout: tur?.stdout as string | undefined,
+              stderr: tur?.stderr as string | undefined,
+              // Generic content from message.content tool_result (works for all tools)
+              content: typeof item.content === 'string' ? item.content : undefined,
+              isError: item.is_error || false,
+              interrupted: tur?.interrupted as boolean | undefined,
+              isImage: tur?.isImage as boolean | undefined,
             });
           }
         }

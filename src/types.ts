@@ -37,6 +37,8 @@ export interface RawContent {
   input?: Record<string, unknown>;
   thinking?: string;
   tool_use_id?: string; // tool_result
+  content?: string;     // tool_result content text
+  is_error?: boolean;   // tool_result error flag
 }
 
 export interface TokenUsage {
@@ -136,6 +138,8 @@ export interface TurnContent {
   toolResult?: {                   // for tool_result (from the following user entry)
     stdout?: string;
     stderr?: string;
+    content?: string;              // generic output (from message.content tool_result)
+    isError?: boolean;
     interrupted?: boolean;
     isImage?: boolean;
   };
