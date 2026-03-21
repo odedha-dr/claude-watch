@@ -607,47 +607,26 @@
       display: grid;
       grid-template-columns: repeat(3, 1fr);
       gap: 12px;
-      margin-bottom: 20px;
+      margin-bottom: 16px;
     }
-    .sub-sort {
+    .agent-list { display: flex; flex-direction: column; gap: 2px; }
+    .agent-row {
+      border-left: 3px solid #a78bfa;
+      background: var(--bg-surface);
+      border-radius: 0 6px 6px 0;
+      margin-bottom: 2px;
+    }
+    .agent-row-header {
       display: flex;
       align-items: center;
       gap: 8px;
-      margin-bottom: 16px;
-      font-size: 12px;
-      color: var(--text-muted);
-    }
-    .sub-sort select {
-      background: var(--bg-surface);
-      border: 1px solid var(--border);
-      color: var(--text);
-      font-family: inherit;
-      font-size: 12px;
-      padding: 4px 8px;
-      border-radius: 4px;
-    }
-    .subagent-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
-    }
-    .subagent-card {
-      background: var(--bg-surface);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 14px;
+      padding: 8px 12px;
       cursor: pointer;
-      transition: border-color 0.15s;
-    }
-    .subagent-card:hover { border-color: var(--accent); }
-    .subagent-card-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      margin-bottom: 8px;
-    }
-    .subagent-desc {
       font-size: 13px;
+      flex-wrap: wrap;
+    }
+    .agent-row-header:hover { background: var(--bg-hover); }
+    .agent-desc {
       font-weight: 600;
       flex: 1;
       min-width: 0;
@@ -655,26 +634,29 @@
       text-overflow: ellipsis;
       white-space: nowrap;
     }
-    .subagent-stats {
+    .agent-stats {
       display: flex;
-      gap: 12px;
+      gap: 10px;
       font-size: 11px;
       color: var(--text-muted);
-      margin-bottom: 8px;
     }
-    .subagent-stats span b { color: var(--text); font-weight: 600; }
-    .subagent-top-tools {
+    .agent-stats b { color: var(--text-primary); font-weight: 600; }
+    .agent-expanded {
+      display: none;
+      padding: 8px 12px 12px 16px;
+      border-top: 1px solid var(--border-color);
+    }
+    .agent-row.expanded > .agent-expanded { display: block; }
+    .agent-loading { color: var(--text-muted); font-size: 12px; padding: 12px; }
+    .agent-detail-summary {
       display: flex;
-      gap: 4px;
+      gap: 16px;
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-bottom: 12px;
       flex-wrap: wrap;
     }
-    .subagent-expanded {
-      display: none;
-      margin-top: 12px;
-      padding-top: 12px;
-      border-top: 1px solid var(--border);
-    }
-    .subagent-card.expanded .subagent-expanded { display: block; }
+    .agent-detail-summary b { color: var(--text-primary); }
 
     /* ---- Turns Tab ---- */
     .turn-list { display: flex; flex-direction: column; gap: 2px; }
@@ -787,6 +769,7 @@
     .role-badge.user { background: rgba(74,158,255,0.15); color: #4a9eff; }
     .role-badge.assistant { background: rgba(0,210,255,0.15); color: var(--accent); }
     .role-badge.tool-result { background: rgba(245,158,11,0.15); color: #f59e0b; }
+    .skill-badge { font-size: 10px; padding: 1px 6px; border-radius: 4px; background: rgba(168,85,247,0.15); color: #a855f7; font-weight: 600; }
     .turn-timestamp {
       font-size: 11px;
       color: var(--text-muted);
@@ -1034,7 +1017,6 @@
       .layout { grid-template-columns: 1fr; }
       .sidebar { max-height: 40vh; }
       .overview-grid { grid-template-columns: 1fr; }
-      .subagent-grid { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -1152,9 +1134,14 @@
     let activeTab = 'overview';
     let turnSortCol = 0;
     let turnSortAsc = true;
-    let subSortBy = 'tokens';
     let expandedSessions = new Set();
     let expandedSubagents = new Set();
+    let agentDetailCache = {};        // agentId -> detail data
+    let agentExpandedTurns = {};      // agentId -> Set of expanded turn numbers
+    let agentExpandedSteps = {};      // agentId -> Set of expanded step keys
+    let agentExpandedThinking = {};
+    let agentExpandedToolInputs = {};
+    let agentExpandedOutputs = {};
     let expandedSkills = new Set();
 
     // ---- Utilities ----
@@ -1401,6 +1388,13 @@
       selectedId = id;
       toolFilter = 'all';
       expandedToolCalls = new Set();
+      expandedSubagents = new Set();
+      agentDetailCache = {};
+      agentExpandedTurns = {};
+      agentExpandedSteps = {};
+      agentExpandedThinking = {};
+      agentExpandedToolInputs = {};
+      agentExpandedOutputs = {};
       renderSidebar();
       document.getElementById('empty-state').style.display = 'none';
       const dv = document.getElementById('detail-view');
@@ -1760,6 +1754,14 @@
         html += `<div class="turn-row-header">`;
         html += `<span class="turn-num">#${t.number}</span>`;
         html += `<span class="role-badge ${t.role}">${t.role}</span>`;
+
+        // Skill badge
+        const skillContent = (t.content || []).find(c => c.type === 'tool_use' && c.toolName === 'Skill');
+        if (skillContent) {
+          const skillName = skillContent.toolInput?.skill || 'skill';
+          html += `<span class="skill-badge">⚡ ${escHtml(String(skillName))}</span>`;
+        }
+
         if (t.timestamp) html += `<span class="turn-timestamp">${fmtTime(t.timestamp)}</span>`;
         if (t.durationMs != null) html += `<span class="turn-duration${durClass ? ' ' + durClass : ''}">${fmtDuration(t.durationMs)}</span>`;
 
@@ -2094,6 +2096,98 @@
     }
 
     // ---- Subagents Tab ----
+    function renderAgentTurns(agentId, detail, parentTurnNumber) {
+      // Reuse renderContentBlock from turns tab. Build a mini turns tree for this agent.
+      const turns = detail.turns || [];
+      if (turns.length === 0) return '<div style="color:var(--text-muted);font-size:12px;">No turns.</div>';
+
+      const expTurns = agentExpandedTurns[agentId] || (agentExpandedTurns[agentId] = new Set());
+      const expSteps = agentExpandedSteps[agentId] || (agentExpandedSteps[agentId] = new Set());
+      const expThink = agentExpandedThinking[agentId] || (agentExpandedThinking[agentId] = new Set());
+      const expTI = agentExpandedToolInputs[agentId] || (agentExpandedToolInputs[agentId] = new Set());
+      const expOut = agentExpandedOutputs[agentId] || (agentExpandedOutputs[agentId] = new Set());
+
+      // Temporarily swap global expand sets so renderContentBlock uses agent-scoped ones
+      const savedThinking = expandedThinking;
+      const savedToolInputs = expandedToolInputs;
+      const savedOutputs = expandedOutputs;
+      expandedThinking = expThink;
+      expandedToolInputs = expTI;
+      expandedOutputs = expOut;
+
+      let html = '<div class="turn-list">';
+      const reversed = [...turns].reverse();
+
+      reversed.forEach((t) => {
+        const isTurnExpanded = expTurns.has(t.number);
+        const roleClass = t.role === 'user' ? 'role-user' : 'role-assistant';
+        const durClass = durationClass(t.durationMs);
+        const tok = t.tokens || {};
+        const steps = t.steps || [];
+        const stepCount = steps.length;
+
+        const displayNum = parentTurnNumber ? `${parentTurnNumber}.${t.number}` : t.number;
+        html += `<div class="turn-row ${roleClass}${isTurnExpanded ? ' expanded' : ''}" data-agent-turn="${agentId}:${t.number}">`;
+        html += `<div class="turn-row-header">`;
+        html += `<span class="turn-num">#${displayNum}</span>`;
+        html += `<span class="role-badge ${t.role}">${t.role}</span>`;
+        if (t.timestamp) html += `<span class="turn-timestamp">${fmtTime(t.timestamp)}</span>`;
+        if (t.durationMs != null) html += `<span class="turn-duration${durClass ? ' ' + durClass : ''}">${fmtDuration(t.durationMs)}</span>`;
+        if (stepCount > 1) html += `<span style="font-size:11px;color:var(--text-muted);margin-left:4px;">(${stepCount} steps)</span>`;
+
+        if (t.toolCalls && t.toolCalls.length > 0) {
+          const toolCounts = {};
+          t.toolCalls.forEach(tc => { toolCounts[tc] = (toolCounts[tc] || 0) + 1; });
+          html += '<span class="turn-pills">';
+          Object.entries(toolCounts).forEach(([name, count]) => {
+            html += `<span class="turn-pill">${escHtml(name)}${count > 1 ? ' ×' + count : ''}</span>`;
+          });
+          html += '</span>';
+        }
+
+        html += `<span class="turn-tokens">In: <b>${fmt(tok.totalIn || tok.input || 0)}</b> &middot; Out: <b>${fmt(tok.output || 0)}</b></span>`;
+        html += '</div>';
+
+        html += '<div class="turn-expanded">';
+        if (stepCount <= 1) {
+          const content = (t.content || []).filter(c => c.type !== 'tool_result');
+          content.forEach((c, ci) => { html += renderContentBlock(c, `a-${agentId}-${t.number}-0-${ci}`); });
+          if (content.length === 0) html += '<div style="color:var(--text-muted);font-size:12px;">No content.</div>';
+        } else {
+          steps.forEach((step, si) => {
+            const stepKey = `${t.number}-${si}`;
+            const isStepExpanded = expSteps.has(stepKey);
+            const stepRoleClass = step.role === 'tool-result' ? 'role-tool-result' : step.role === 'user' ? 'role-user' : 'role-assistant';
+
+            html += `<div class="step-row ${stepRoleClass}${isStepExpanded ? ' expanded' : ''}" data-agent-step="${agentId}:${stepKey}">`;
+            html += `<div class="step-row-header">`;
+            html += `<span class="step-indicator">▸</span>`;
+            html += `<span class="role-badge ${step.role}" style="font-size:10px;padding:1px 6px;">${step.role}</span>`;
+            if (step.timestamp) html += `<span class="turn-timestamp">${fmtTime(step.timestamp)}</span>`;
+            if (step.durationMs != null) html += `<span class="turn-duration">${fmtDuration(step.durationMs)}</span>`;
+            html += `<span class="step-label">${escHtml(stepLabel(step))}</span>`;
+            html += '</div>';
+
+            html += '<div class="step-expanded">';
+            const stepContent = step.role === 'tool-result' ? (step.content || []) : (step.content || []).filter(c => c.type !== 'tool_result');
+            stepContent.forEach((c, ci) => { html += renderContentBlock(c, `a-${agentId}-${t.number}-${si}-${ci}`); });
+            if (stepContent.length === 0) html += '<div style="color:var(--text-muted);font-size:12px;">No content.</div>';
+            html += '</div></div>';
+          });
+        }
+
+        html += '</div></div>';
+      });
+      html += '</div>';
+
+      // Restore global sets
+      expandedThinking = savedThinking;
+      expandedToolInputs = savedToolInputs;
+      expandedOutputs = savedOutputs;
+
+      return html;
+    }
+
     function renderSubagents() {
       const d = selectedDetail;
       if (!d) return;
@@ -2102,107 +2196,193 @@
       const spawns = d.subagentSpawns || [];
 
       // Calculate totals
-      let totalSubTokens = 0;
+      let totalSubTokens = 0, totalCost = 0;
       subs.forEach(s => { totalSubTokens += (s.tokens.input || 0) + (s.tokens.output || 0); });
 
       let html = '';
 
       // Summary
       html += '<div class="sub-summary">';
-      html += `<div class="stat-card"><div class="stat-card-value">${subs.length}</div><div class="stat-card-label">Subagents</div></div>`;
+      html += `<div class="stat-card"><div class="stat-card-value">${spawns.length}</div><div class="stat-card-label">Agent Spawns</div></div>`;
+      html += `<div class="stat-card"><div class="stat-card-value">${subs.length}</div><div class="stat-card-label">With Data</div></div>`;
       html += `<div class="stat-card"><div class="stat-card-value">${fmt(totalSubTokens)}</div><div class="stat-card-label">Total Tokens</div></div>`;
-      html += `<div class="stat-card"><div class="stat-card-value">${spawns.length}</div><div class="stat-card-label">Spawns</div></div>`;
       html += '</div>';
 
-      if (subs.length === 0) {
-        html += '<div style="padding:20px;text-align:center;color:var(--text-muted)">No subagents in this session.</div>';
+      if (spawns.length === 0) {
+        html += '<div style="padding:20px;text-align:center;color:var(--text-muted)">No agents spawned in this session.</div>';
         document.getElementById('tab-subagents').innerHTML = html;
         return;
       }
 
-      // Sort selector
-      html += `<div class="sub-sort">Sort by: <select id="sub-sort-select">
-        <option value="tokens"${subSortBy === 'tokens' ? ' selected' : ''}>Tokens</option>
-        <option value="tools"${subSortBy === 'tools' ? ' selected' : ''}>Tool Calls</option>
-      </select></div>`;
+      // Build merged agent list from discovery subagents + parser spawns
+      // Discovery subs have correct file IDs; spawns have descriptions/models
+      // Match by index order since both come from the same session chronologically
+      const agents = [];
+      const usedSpawns = new Set();
 
-      // Sort subagents
-      const sorted = [...subs];
-      sorted.sort((a, b) => {
-        if (subSortBy === 'tokens') {
-          return (b.tokens.input + b.tokens.output) - (a.tokens.input + a.tokens.output);
-        }
-        const aTools = Object.values(a.toolCalls || {}).reduce((s, v) => s + v, 0);
-        const bTools = Object.values(b.toolCalls || {}).reduce((s, v) => s + v, 0);
-        return bTools - aTools;
+      // First: add all discovery subagents, try to match with spawns
+      subs.forEach((sub, idx) => {
+        const spawn = spawns[idx] || null;
+        if (spawn) usedSpawns.add(idx);
+        agents.push({ sub, spawn, agentKey: sub.id });
       });
 
-      html += '<div class="subagent-grid">';
-      sorted.forEach((sub, idx) => {
-        const spawn = spawns.find(sp => sp.id === sub.id);
-        const desc = spawn ? spawn.description : sub.id;
-        const model = spawn ? spawn.model : null;
-        const isExpanded = expandedSubagents.has(sub.id);
-        const toolEntries = Object.entries(sub.toolCalls || {}).sort((a, b) => b[1] - a[1]);
-        const topTools = toolEntries.slice(0, 3);
-        const totalTools = toolEntries.reduce((s, [, v]) => s + v, 0);
+      // Then: add any unmatched spawns (no subagent file yet, e.g. still running)
+      spawns.forEach((spawn, idx) => {
+        if (!usedSpawns.has(idx)) {
+          agents.push({ sub: null, spawn, agentKey: spawn.agentId || spawn.id });
+        }
+      });
 
-        html += `<div class="subagent-card${isExpanded ? ' expanded' : ''}" data-sub-id="${escHtml(sub.id)}">
-          <div class="subagent-card-header">
-            <div class="subagent-desc" title="${escHtml(desc)}">${escHtml(desc)}</div>
-            ${model ? `<span class="badge" style="color:${modelColor(model)};border:1px solid ${modelColor(model)};font-size:10px;padding:1px 6px;margin-left:6px">${shortModel(model)}</span>` : ''}
-          </div>
-          <div class="subagent-stats">
-            <span>In: <b>${fmt(sub.tokens.input)}</b></span>
-            <span>Out: <b>${fmt(sub.tokens.output)}</b></span>
-            <span>Tools: <b>${totalTools}</b></span>
-          </div>
-          <div class="subagent-top-tools">
-            ${topTools.map(([name, count]) => `<span class="tool-tag">${escHtml(name)} (${count})</span>`).join('')}
-          </div>
-          <div class="subagent-expanded">
-            <div style="margin-bottom:8px">
-              <table class="breakdown-table">
-                <tr><td>Input tokens</td><td>${fmt(sub.tokens.input)}</td></tr>
-                <tr><td>Output tokens</td><td>${fmt(sub.tokens.output)}</td></tr>
-                <tr class="total-row"><td>Total</td><td>${fmt(sub.tokens.input + sub.tokens.output)}</td></tr>
-              </table>
-            </div>
-            ${toolEntries.length > 0 ? (() => {
-              const maxTc = toolEntries[0][1];
-              return '<div class="bar-chart" style="margin-top:8px">' + toolEntries.map(([name, count]) => {
-                const pct = (count / maxTc * 100).toFixed(1);
-                return `<div class="bar-row">
-                  <div class="bar-label" title="${escHtml(name)}">${escHtml(name)}</div>
-                  <div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>
-                  <div class="bar-count">${count}</div>
-                </div>`;
-              }).join('') + '</div>';
-            })() : ''}
-          </div>
-        </div>`;
+      html += '<div class="agent-list">';
+      agents.forEach(({ spawn, sub, agentKey }) => {
+        const isExpanded = expandedSubagents.has(agentKey);
+        const desc = spawn ? (spawn.description || agentKey) : agentKey;
+        const model = spawn ? spawn.model : null;
+        const totalTools = sub ? Object.values(sub.toolCalls || {}).reduce((s, v) => s + v, 0) : 0;
+        const topTools = sub ? Object.entries(sub.toolCalls || {}).sort((a, b) => b[1] - a[1]).slice(0, 4) : [];
+
+        html += `<div class="agent-row${isExpanded ? ' expanded' : ''}" data-agent-id="${escHtml(agentKey)}">`;
+        html += `<div class="agent-row-header">`;
+        if (spawn) html += `<span class="turn-num">#${spawn.turnNumber}</span>`;
+        if (model) html += `<span class="badge" style="color:${modelColor(model)};border:1px solid ${modelColor(model)};font-size:10px;padding:1px 6px">${shortModel(model)}</span>`;
+        html += `<span class="agent-desc" title="${escHtml(desc)}">${escHtml(desc)}</span>`;
+        if (spawn && spawn.timestamp) html += `<span class="turn-timestamp">${fmtTime(spawn.timestamp)}</span>`;
+        html += '<span class="agent-stats">';
+        if (sub) {
+          html += `In: <b>${fmt(sub.tokens.input)}</b> &middot; Out: <b>${fmt(sub.tokens.output)}</b>`;
+          if (totalTools > 0) html += ` &middot; Tools: <b>${totalTools}</b>`;
+        } else {
+          html += '<span style="color:var(--text-muted)">no data</span>';
+        }
+        html += '</span>';
+        if (topTools.length > 0) {
+          html += '<span class="turn-pills">';
+          topTools.forEach(([name, count]) => {
+            html += `<span class="turn-pill">${escHtml(name)}${count > 1 ? ' ×' + count : ''}</span>`;
+          });
+          html += '</span>';
+        }
+        html += '</div>'; // end header
+
+        // Expanded content
+        html += '<div class="agent-expanded">';
+        if (isExpanded) {
+          const cached = agentDetailCache[agentKey];
+          if (cached) {
+            // Summary bar
+            html += '<div class="agent-detail-summary">';
+            if (spawn) html += `<span>Turn: <b>#${spawn.turnNumber}</b></span>`;
+            html += `<span>Agent: <b>${escHtml(desc)}</b></span>`;
+            if (cached.model) html += `<span>Model: <b>${escHtml(cached.model)}</b></span>`;
+            html += `<span>Turns: <b>${(cached.turns || []).length}</b></span>`;
+            html += `<span>Input: <b>${fmt(cached.tokens.input)}</b></span>`;
+            html += `<span>Output: <b>${fmt(cached.tokens.output)}</b></span>`;
+            if (cached.cost) html += `<span>Cost: <b>${fmtCost(cached.cost.total)}</b></span>`;
+            html += '</div>';
+            const parentTurn = spawn ? spawn.turnNumber : 0;
+            html += renderAgentTurns(agentKey, cached, parentTurn);
+          } else {
+            html += '<div class="agent-loading">Loading agent details...</div>';
+          }
+        }
+        html += '</div>'; // end expanded
+        html += '</div>'; // end agent-row
       });
       html += '</div>';
 
       document.getElementById('tab-subagents').innerHTML = html;
 
-      // Attach events
-      document.querySelectorAll('.subagent-card').forEach(card => {
-        card.addEventListener('click', () => {
-          const id = card.dataset.subId;
-          if (expandedSubagents.has(id)) expandedSubagents.delete(id);
-          else expandedSubagents.add(id);
+      // Attach click handlers
+      document.querySelectorAll('.agent-row-header').forEach(header => {
+        header.addEventListener('click', async () => {
+          const row = header.parentElement;
+          const agentKey = row.dataset.agentId;
+          if (expandedSubagents.has(agentKey)) {
+            expandedSubagents.delete(agentKey);
+            renderSubagents();
+          } else {
+            expandedSubagents.add(agentKey);
+            renderSubagents(); // show loading state
+            if (!agentDetailCache[agentKey]) {
+              try {
+                const resp = await fetch('/api/sessions/' + encodeURIComponent(selectedId) + '/agents/' + encodeURIComponent(agentKey));
+                if (resp.ok) {
+                  agentDetailCache[agentKey] = await resp.json();
+                }
+              } catch {}
+              renderSubagents();
+            }
+          }
+        });
+      });
+
+      // Attach turn expand/collapse for agent turns
+      document.querySelectorAll('[data-agent-turn]').forEach(el => {
+        el.querySelector('.turn-row-header')?.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (e.target.closest('.tcb-code-toggle')) return;
+          const [agentId, turnNum] = el.dataset.agentTurn.split(':');
+          const set = agentExpandedTurns[agentId] || (agentExpandedTurns[agentId] = new Set());
+          const num = parseInt(turnNum);
+          if (set.has(num)) set.delete(num); else set.add(num);
           renderSubagents();
         });
       });
 
-      const sortSelect = document.getElementById('sub-sort-select');
-      if (sortSelect) {
-        sortSelect.addEventListener('change', () => {
-          subSortBy = sortSelect.value;
+      // Attach step expand/collapse for agent steps
+      document.querySelectorAll('[data-agent-step]').forEach(el => {
+        el.querySelector('.step-row-header')?.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (e.target.closest('.tcb-code-toggle')) return;
+          const [agentId, stepKey] = el.dataset.agentStep.split(':');
+          const set = agentExpandedSteps[agentId] || (agentExpandedSteps[agentId] = new Set());
+          if (set.has(stepKey)) set.delete(stepKey); else set.add(stepKey);
           renderSubagents();
         });
-      }
+      });
+
+      // Thinking, tool input, output toggles (scoped to agent tab)
+      document.querySelectorAll('#tab-subagents [data-thinking-toggle]').forEach(el => {
+        el.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const key = el.dataset.thinkingToggle;
+          const agentId = key.split('-')[1]; // a-<agentId>-...
+          const set = agentExpandedThinking[agentId] || (agentExpandedThinking[agentId] = new Set());
+          if (set.has(key)) set.delete(key); else set.add(key);
+          renderSubagents();
+        });
+      });
+      document.querySelectorAll('#tab-subagents .tcb-thinking-header').forEach(el => {
+        el.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const key = el.dataset.thinkingKey;
+          const agentId = key.split('-')[1];
+          const set = agentExpandedThinking[agentId] || (agentExpandedThinking[agentId] = new Set());
+          if (set.has(key)) set.delete(key); else set.add(key);
+          renderSubagents();
+        });
+      });
+      document.querySelectorAll('#tab-subagents [data-tool-input-toggle]').forEach(el => {
+        el.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const key = el.dataset.toolInputToggle;
+          const agentId = key.split('-')[1];
+          const set = agentExpandedToolInputs[agentId] || (agentExpandedToolInputs[agentId] = new Set());
+          if (set.has(key)) set.delete(key); else set.add(key);
+          renderSubagents();
+        });
+      });
+      document.querySelectorAll('#tab-subagents [data-output-toggle]').forEach(el => {
+        el.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const key = el.dataset.outputToggle;
+          const agentId = key.split('-')[1];
+          const set = agentExpandedOutputs[agentId] || (agentExpandedOutputs[agentId] = new Set());
+          if (set.has(key)) set.delete(key); else set.add(key);
+          renderSubagents();
+        });
+      });
     }
 
     // ---- Skills Tab ----

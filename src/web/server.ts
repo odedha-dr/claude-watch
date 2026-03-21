@@ -1,5 +1,6 @@
 import express from 'express';
-import { join, dirname } from 'path';
+import { join, dirname, basename } from 'path';
+import { existsSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { SessionWatcher } from '../watcher.js';
 import { parseSessionFileDetailed } from '../parser.js';
@@ -124,6 +125,39 @@ export function createWebServer(
       res.json(detail);
     } catch (err) {
       res.status(500).json({ error: 'Failed to parse session' });
+    }
+  });
+
+  // Agent detail endpoint — full detail for a subagent (lazy-loaded)
+  app.get('/api/sessions/:id/agents/:agentId', async (req, res) => {
+    const session = watcher.getSessionById(req.params.id);
+    if (!session) {
+      res.status(404).json({ error: 'Session not found' });
+      return;
+    }
+
+    const agentId = req.params.agentId;
+    const sessionDir = dirname(session.filePath);
+    const sessionBase = basename(session.filePath, '.jsonl');
+    const subagentDir = join(sessionDir, sessionBase, 'subagents');
+
+    // Try exact match, then with agent- prefix, then without agent- prefix
+    let agentPath = join(subagentDir, agentId + '.jsonl');
+    if (!existsSync(agentPath)) {
+      agentPath = join(subagentDir, 'agent-' + agentId + '.jsonl');
+    }
+    if (!existsSync(agentPath) && agentId.startsWith('agent-')) {
+      agentPath = join(subagentDir, agentId.replace('agent-', '') + '.jsonl');
+    }
+
+    try {
+      const detail = await parseSessionFileDetailed(agentPath, session.project);
+      // Add cost calculation
+      const cost = calculateCost(detail.model || session.model, detail.tokens);
+      detail.cost = cost;
+      res.json(detail);
+    } catch (err) {
+      res.status(404).json({ error: 'Agent session not found' });
     }
   });
 
