@@ -1,6 +1,6 @@
 {
   "name": "@odedha/claude-watch",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "Live monitoring dashboard for Claude Code sessions",
   "type": "module",
   "main": "dist/index.js",
