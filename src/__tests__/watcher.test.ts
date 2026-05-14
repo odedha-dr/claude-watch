@@ -13,6 +13,7 @@ function mockSession(overrides: Partial<SessionData> = {}): SessionData {
     startedAt: new Date(),
     isActive: false,
     tokens: { input: 0, output: 0, cacheCreation: 0, cacheRead: 0 },
+    contextWindow: { input: 0, cacheCreation: 0, cacheRead: 0, total: 0 },
     compactions: 0,
     toolCalls: {},
     agentSpawns: 0,

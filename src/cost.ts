@@ -13,15 +13,19 @@ export interface CostBreakdown {
   total: number;
 }
 
-// Ordered longest-prefix-first so findPricing matches correctly
+// Ordered longest-prefix-first so findPricing matches correctly.
+// Note: legacy Opus 4.0/4.1 entries must come before the `claude-opus-4` catch-all,
+// which uses the new pricing — future Opus 4.x versions inherit new pricing by default.
 const MODEL_PRICING_ENTRIES: [string, ModelPricing][] = [
-  // Opus 4.6 / 4.5 — new pricing
+  // Opus 4.7 / 4.6 / 4.5 — new pricing
+  ['claude-opus-4-7',   { input: 5.00,  output: 25.00, cacheWrite: 6.25,  cacheRead: 0.50 }],
   ['claude-opus-4-6',   { input: 5.00,  output: 25.00, cacheWrite: 6.25,  cacheRead: 0.50 }],
   ['claude-opus-4-5',   { input: 5.00,  output: 25.00, cacheWrite: 6.25,  cacheRead: 0.50 }],
-  // Opus 4.1 / 4.0 — legacy pricing
+  // Opus 4.1 / 4.0 — legacy pricing (must precede the `claude-opus-4` catch-all below)
   ['claude-opus-4-1',   { input: 15.00, output: 75.00, cacheWrite: 18.75, cacheRead: 1.50 }],
   ['claude-opus-4-0',   { input: 15.00, output: 75.00, cacheWrite: 18.75, cacheRead: 1.50 }],
-  ['claude-opus-4',     { input: 15.00, output: 75.00, cacheWrite: 18.75, cacheRead: 1.50 }],
+  // Catch-all for future Opus 4.x — defaults to new pricing
+  ['claude-opus-4',     { input: 5.00,  output: 25.00, cacheWrite: 6.25,  cacheRead: 0.50 }],
   // Sonnet — all versions same pricing
   ['claude-sonnet-4',   { input: 3.00,  output: 15.00, cacheWrite: 3.75,  cacheRead: 0.30 }],
   // Haiku 4.5

@@ -95,6 +95,30 @@ describe('calculateCost', () => {
     expect(result.total).toBeCloseTo(30.00);
   });
 
+  it('uses new Opus pricing for Opus 4.7', () => {
+    const result = calculateCost('claude-opus-4-7', {
+      input: 1_000_000,
+      output: 1_000_000,
+      cacheCreation: 1_000_000,
+      cacheRead: 1_000_000,
+    });
+    expect(result.input).toBeCloseTo(5.00);
+    expect(result.output).toBeCloseTo(25.00);
+    expect(result.cacheWrite).toBeCloseTo(6.25);
+    expect(result.cacheRead).toBeCloseTo(0.50);
+  });
+
+  it('defaults future Opus 4.x versions to new pricing (not legacy)', () => {
+    // Regression: previously the `claude-opus-4` catch-all was legacy pricing,
+    // so claude-opus-4-7 silently billed at 3x. Future versions must inherit new pricing.
+    for (const model of ['claude-opus-4-8', 'claude-opus-4-9-20260101']) {
+      const result = calculateCost(model, {
+        input: 1_000_000, output: 0, cacheCreation: 0, cacheRead: 0,
+      });
+      expect(result.input).toBeCloseTo(5.00);
+    }
+  });
+
   it('uses Sonnet pricing for all Sonnet versions', () => {
     for (const model of ['claude-sonnet-4-6', 'claude-sonnet-4-5', 'claude-sonnet-4-0']) {
       const result = calculateCost(model, {

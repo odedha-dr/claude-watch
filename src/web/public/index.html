@@ -360,6 +360,46 @@
       padding-top: 8px;
       font-weight: 700;
     }
+    .breakdown-table tr.ctx-row td {
+      padding-top: 6px;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+    .breakdown-table tr.ctx-row td:last-child {
+      font-weight: 600;
+      color: var(--text);
+    }
+    .breakdown-table .hint {
+      color: var(--text-muted);
+      font-size: 11px;
+      font-weight: 400;
+      cursor: help;
+    }
+    .ledger-note {
+      margin-top: 10px;
+      padding: 8px 10px;
+      background: rgba(255,255,255,0.03);
+      border-left: 2px solid var(--text-muted);
+      font-size: 11px;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+    .ledger-note code {
+      background: rgba(255,255,255,0.06);
+      padding: 1px 4px;
+      border-radius: 3px;
+      font-size: 10.5px;
+    }
+    .ledger-note strong {
+      color: var(--text);
+    }
+    .card h3 .hint {
+      font-size: 10px;
+      font-weight: 400;
+      color: var(--text-muted);
+      cursor: help;
+      margin-left: 6px;
+    }
 
     .quick-stats {
       display: grid;
@@ -1469,6 +1509,7 @@
       const totalToolCalls = d.toolCalls ? d.toolCalls.length : 0;
       const subCount = d.subagents ? d.subagents.length : 0;
       const skillCount = d.skills ? d.skills.length : 0;
+      const ctx = d.contextWindow || { input: 0, cacheCreation: 0, cacheRead: 0, total: 0 };
 
       document.getElementById('tab-overview').innerHTML = `
         <div class="quick-stats">
@@ -1491,17 +1532,20 @@
         </div>
         <div class="overview-grid">
           <div class="card">
-            <h3>Token Breakdown</h3>
+            <h3>Tokens <span class="hint" title="Local JSONL totals. Lifetime billable matches /usage's cost; Cache Read matches /usage's cache read; Context Window matches what /usage reports for the current context size.">(matches /usage)</span></h3>
             <table class="breakdown-table">
-              <tr><td>Input</td><td>${fmt(d.tokens.input)}</td></tr>
-              <tr><td>Output</td><td>${fmt(d.tokens.output)}</td></tr>
-              <tr><td>Cache Created</td><td>${fmt(d.tokens.cacheCreation)}</td></tr>
-              <tr><td>Cache Read</td><td>${fmt(d.tokens.cacheRead)}</td></tr>
-              <tr class="total-row"><td>Total</td><td>${fmt(totalTokens)}</td></tr>
+              <tr><td>Cache Read <span class="hint" title="Lifetime cache_read sum — agrees with /usage within ~1%.">(lifetime)</span></td><td>${fmt(d.tokens.cacheRead)}</td></tr>
+              <tr class="total-row"><td>Total <span class="hint" title="Input + Output + Cache Write + Cache Read summed across the session. Underlies the total cost shown, which matches /usage within ~2%.">(billable)</span></td><td>${fmt(totalTokens)}</td></tr>
+              <tr class="ctx-row"><td>Context Window <span class="hint" title="Input + cache of the latest assistant turn — what the model just saw. Matches /usage's reported context size.">(last turn)</span></td><td>${fmt(ctx.total)}</td></tr>
             </table>
+            <div class="ledger-note">
+              Input / Output / Cache Write breakdown is omitted: <code>/usage</code> sources those from the daemon's
+              runtime counters (which include title-generation and other API calls not persisted to the JSONL),
+              so per-field numbers cannot match within ±5%. <strong>Total cost and Cache Read do agree.</strong>
+            </div>
           </div>
           <div class="card">
-            <h3>Cost Breakdown</h3>
+            <h3>Cost <span class="hint" title="Total cost matches /usage within ~2% for sessions on claude-opus-4-7. Per-field breakdown is shown for reference but differs from /usage (see note in Tokens card).">(matches /usage at total)</span></h3>
             <table class="breakdown-table">
               <tr><td>Input</td><td>${fmtCostDetail(d.cost.input)}</td></tr>
               <tr><td>Output</td><td>${fmtCostDetail(d.cost.output)}</td></tr>

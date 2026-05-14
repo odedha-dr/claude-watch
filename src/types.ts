@@ -67,6 +67,15 @@ export interface SessionData {
     cacheCreation: number;
     cacheRead: number;
   };
+  // Current context window — input+cache of the latest assistant turn.
+  // This is what Claude Code's /usage reports as context size (~106K of 200K, etc.),
+  // distinct from the lifetime billable tokens above which sum every turn.
+  contextWindow: {
+    input: number;
+    cacheCreation: number;
+    cacheRead: number;
+    total: number;
+  };
   compactions: number;
   toolCalls: Record<string, number>;
   agentSpawns: number;
@@ -198,6 +207,13 @@ export interface SessionDetail {
     output: number;
     cacheCreation: number;
     cacheRead: number;
+  };
+  // See SessionData.contextWindow.
+  contextWindow: {
+    input: number;
+    cacheCreation: number;
+    cacheRead: number;
+    total: number;
   };
   cost: { input: number; output: number; cacheWrite: number; cacheRead: number; total: number };
   compactions: number;

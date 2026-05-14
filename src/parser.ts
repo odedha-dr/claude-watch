@@ -81,6 +81,12 @@ export async function parseSessionFile(filePath: string, project: string, source
   const content = await readFile(filePath, 'utf-8');
   const lines = content.trim().split('\n');
 
+  // Claude Code splits one assistant message into multiple JSONL entries (one per
+  // content block: thinking / text / tool_use), and every fragment carries the SAME
+  // `usage` object. Token accumulation must dedup by message.id, otherwise totals
+  // multiply by the number of fragments per turn (typically 2-3×).
+  const seenMessageIds = new Set<string>();
+
   const session: SessionData = {
     id: basename(filePath, '.jsonl'),
     filePath,
@@ -91,6 +97,7 @@ export async function parseSessionFile(filePath: string, project: string, source
     startedAt: null,
     isActive: false,
     tokens: { input: 0, output: 0, cacheCreation: 0, cacheRead: 0 },
+    contextWindow: { input: 0, cacheCreation: 0, cacheRead: 0, total: 0 },
     compactions: 0,
     toolCalls: {},
     agentSpawns: 0,
@@ -130,11 +137,28 @@ export async function parseSessionFile(filePath: string, project: string, source
     // Model (take the latest)
     if (metrics.model) session.model = metrics.model;
 
-    // Accumulate tokens
-    session.tokens.input += metrics.tokens.input;
-    session.tokens.output += metrics.tokens.output;
-    session.tokens.cacheCreation += metrics.tokens.cacheCreation;
-    session.tokens.cacheRead += metrics.tokens.cacheRead;
+    // Dedup token accumulation against duplicate message-fragment entries.
+    const messageId = raw.message?.id;
+    const isDuplicate = !!messageId && seenMessageIds.has(messageId);
+    if (raw.message?.role === 'assistant' && raw.message?.usage && !isDuplicate) {
+      session.tokens.input += metrics.tokens.input;
+      session.tokens.output += metrics.tokens.output;
+      session.tokens.cacheCreation += metrics.tokens.cacheCreation;
+      session.tokens.cacheRead += metrics.tokens.cacheRead;
+
+      // Track latest assistant turn's input-side tokens as the current context window.
+      // Tool-only turns with no input/cache tokens shouldn't reset the value.
+      const ctxTotal = metrics.tokens.input + metrics.tokens.cacheCreation + metrics.tokens.cacheRead;
+      if (ctxTotal > 0) {
+        session.contextWindow = {
+          input: metrics.tokens.input,
+          cacheCreation: metrics.tokens.cacheCreation,
+          cacheRead: metrics.tokens.cacheRead,
+          total: ctxTotal,
+        };
+      }
+    }
+    if (messageId) seenMessageIds.add(messageId);
 
     // Compactions
     session.compactions += metrics.compactions;
@@ -169,7 +193,10 @@ export async function parseSessionFileDetailed(filePath: string, project: string
   let model = '';
   let cwd = '';
   const tokens = { input: 0, output: 0, cacheCreation: 0, cacheRead: 0 };
+  const contextWindow = { input: 0, cacheCreation: 0, cacheRead: 0, total: 0 };
   let compactions = 0;
+  // See parseSessionFile: dedup token accumulation across message-fragment entries.
+  const seenMessageIds = new Set<string>();
 
   const turns: Turn[] = [];
   const toolCalls: ToolCallEntry[] = [];
@@ -267,16 +294,31 @@ export async function parseSessionFileDetailed(filePath: string, project: string
     // Token usage
     let stepTokens = { input: 0, output: 0, cacheCreation: 0, cacheRead: 0, totalIn: 0 };
     if (msg.usage && stepRole === 'assistant') {
-      const u = msg.usage;
-      const inp = u.input_tokens || 0;
-      const out = u.output_tokens || 0;
-      const cc = u.cache_creation_input_tokens || 0;
-      const cr = u.cache_read_input_tokens || 0;
-      tokens.input += inp;
-      tokens.output += out;
-      tokens.cacheCreation += cc;
-      tokens.cacheRead += cr;
-      stepTokens = { input: inp, output: out, cacheCreation: cc, cacheRead: cr, totalIn: inp + cc + cr };
+      const messageId = msg.id;
+      const isDuplicate = !!messageId && seenMessageIds.has(messageId);
+      if (messageId) seenMessageIds.add(messageId);
+      if (!isDuplicate) {
+        const u = msg.usage;
+        const inp = u.input_tokens || 0;
+        const out = u.output_tokens || 0;
+        const cc = u.cache_creation_input_tokens || 0;
+        const cr = u.cache_read_input_tokens || 0;
+        tokens.input += inp;
+        tokens.output += out;
+        tokens.cacheCreation += cc;
+        tokens.cacheRead += cr;
+        stepTokens = { input: inp, output: out, cacheCreation: cc, cacheRead: cr, totalIn: inp + cc + cr };
+        // Track context window from the latest assistant turn with input-side tokens.
+        const ctxTotal = inp + cc + cr;
+        if (ctxTotal > 0) {
+          contextWindow.input = inp;
+          contextWindow.cacheCreation = cc;
+          contextWindow.cacheRead = cr;
+          contextWindow.total = ctxTotal;
+        }
+      }
+      // For duplicate fragments, leave stepTokens at zero — the first fragment
+      // carries the cost; subsequent ones are content-only.
     }
 
     // Build content blocks
@@ -518,6 +560,7 @@ export async function parseSessionFileDetailed(filePath: string, project: string
     startedAt: null,
     isActive: false,
     tokens,
+    contextWindow,
     cost,
     compactions,
     turns,

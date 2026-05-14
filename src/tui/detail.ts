@@ -78,6 +78,7 @@ export function createDetailPanel(screen: blessed.Widgets.Screen): DetailPanelWi
     lines.push(`  ─────────────────────────     ─────────────`);
     lines.push(`  Total In:      {bold}{white-fg}${fmt(totalIn).padStart(10)}{/white-fg}{/bold}     {bold}Total:  {green-fg}${fmtCost(cost.total).padStart(8)}{/green-fg}{/bold}`);
     lines.push(`  Total:         {bold}{white-fg}${fmt(totalTokens).padStart(10)}{/white-fg}{/bold}`);
+    lines.push(`  Context (last): {white-fg}${fmt(session.contextWindow.total).padStart(9)}{/white-fg} {gray-fg}← what /usage shows{/gray-fg}`);
     lines.push('');
 
     // Tool calls as text bars

@@ -1,9 +1,18 @@
 import { describe, it, expect } from 'vitest';
 import { parseSessionFile, parseEntry, parseSessionFileDetailed } from '../parser.js';
 import { join } from 'path';
+import { writeFile, mkdtemp } from 'fs/promises';
+import { tmpdir } from 'os';
 
 const FIXTURE_PATH = join(import.meta.dirname, 'fixtures', 'sample-session.jsonl');
 const MULTI_TURN_FIXTURE = join(import.meta.dirname, 'fixtures', 'multi-turn-session.jsonl');
+
+async function writeTempJsonl(entries: object[]): Promise<string> {
+  const dir = await mkdtemp(join(tmpdir(), 'claude-watch-test-'));
+  const path = join(dir, 'session.jsonl');
+  await writeFile(path, entries.map(e => JSON.stringify(e)).join('\n'));
+  return path;
+}
 
 describe('parseEntry', () => {
   it('extracts token usage from assistant message', () => {
@@ -79,6 +88,40 @@ describe('parseSessionFile', () => {
     expect(session.skillInvocations).toContain('brainstorming');
     expect(session.cwd).toBe('/Users/test/my-project');
   });
+
+  it('dedups token accumulation across message-fragment entries (same message.id)', async () => {
+    // Claude Code splits one assistant message into multiple JSONL entries —
+    // one per content block — each carrying the same `usage`. Token totals must
+    // count each `usage` once, not once per fragment.
+    const usage = { input_tokens: 10, output_tokens: 100, cache_creation_input_tokens: 50, cache_read_input_tokens: 1000 };
+    const path = await writeTempJsonl([
+      { sessionId: 's1', timestamp: '2026-01-01T00:00:00Z', cwd: '/x', type: 'assistant',
+        message: { id: 'msg_a', role: 'assistant', model: 'claude-opus-4-7',
+                   usage, content: [{ type: 'thinking', thinking: 'x' }] } },
+      { sessionId: 's1', timestamp: '2026-01-01T00:00:01Z', type: 'assistant',
+        message: { id: 'msg_a', role: 'assistant', model: 'claude-opus-4-7',
+                   usage, content: [{ type: 'text', text: 'hello' }] } },
+      { sessionId: 's1', timestamp: '2026-01-01T00:00:02Z', type: 'assistant',
+        message: { id: 'msg_a', role: 'assistant', model: 'claude-opus-4-7',
+                   usage, content: [{ type: 'tool_use', name: 'Bash', id: 't1', input: {} }] } },
+    ]);
+    const session = await parseSessionFile(path, 'p');
+    // Single counted usage, regardless of fragment count.
+    expect(session.tokens).toEqual({ input: 10, output: 100, cacheCreation: 50, cacheRead: 1000 });
+    // Tool calls still counted per fragment (each fragment has its own content).
+    expect(session.toolCalls.Bash).toBe(1);
+  });
+
+  it('tracks contextWindow from the latest assistant turn', async () => {
+    const session = await parseSessionFile(MULTI_TURN_FIXTURE, 'test-project');
+    // Latest assistant turn in fixture: input=600, cacheCreation=300, cacheRead=150
+    expect(session.contextWindow).toEqual({
+      input: 600,
+      cacheCreation: 300,
+      cacheRead: 150,
+      total: 1050,
+    });
+  });
 });
 
 describe('parseSessionFileDetailed', () => {
@@ -152,6 +195,16 @@ describe('parseSessionFileDetailed', () => {
     expect(detail.cost).toHaveProperty('cacheRead');
     expect(detail.cost).toHaveProperty('total');
     expect(detail.cost.total).toBeGreaterThan(0);
+  });
+
+  it('tracks contextWindow from the latest assistant turn (detail)', async () => {
+    const detail = await parseSessionFileDetailed(MULTI_TURN_FIXTURE, 'test-project');
+    expect(detail.contextWindow).toEqual({
+      input: 600,
+      cacheCreation: 300,
+      cacheRead: 150,
+      total: 1050,
+    });
   });
 
   it('counts compactions correctly', async () => {
